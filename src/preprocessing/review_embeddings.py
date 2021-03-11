@@ -30,7 +30,6 @@ def process(first_sentence, second_sentence):
     else:
         tokenized_second = []
     tokenized_text = tokenized_first + tokenized_second
-    print(tokenized_text)
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
     segments_ids = [0 for i in range(len(tokenized_first))]
     segments_ids += [1 for i in range(len(tokenized_second))]
@@ -90,6 +89,17 @@ def get_review_embedding(review):
     if review_embedding_type == "avg":
         # avg over all pairs [pairs, 1, 768] => [1, 768]
         mean = torch.mean(torch.stack(list(sentence_embeddings)), axis=0)
+        return mean
+
+
+def get_embedding(reviews):
+    embeddings = []
+    for review in reviews:
+        # [1, 768]
+        embeddings.append(get_review_embedding(review))
+    # [num_reviews, 1, 768] => [1, 768]
+    mean = torch.mean(torch.stack(list(embeddings)), axis=0)
+    return mean
 
 
 example_review = "I love this product. \
@@ -102,7 +112,6 @@ example_review2 = "I hate this product. \
 
 example_review3 = "Five Stars."
 
-reviews = [example_review, example_review2, example_review3]
-for review in reviews:
-    review_embedding = get_review_embedding(review)
+example_reviews = [example_review, example_review2, example_review3]
 
+# get_embedding(example_reviews)
