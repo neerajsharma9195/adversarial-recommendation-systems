@@ -5,7 +5,7 @@ import math
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from src.preprocessing.utils import get_all_reviews_of_user, get_conditional_vector, get_missing_vector, \
-    get_rating_vector
+    get_rating_vector, get_noise_vector
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -43,16 +43,21 @@ class ReviewEmbedding(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, reviwes):
+    def forward(self, reviews):
         # define pre trained BERT
         pass
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_size, c_embedding_size, review_embedding_size):
+    def __init__(self, input_size, c_embedding_size, review_embedding_size, use_reviews=True):
         super(Discriminator, self).__init__()
+        self.use_reviews = use_reviews
+        if self.use_reviews:
+            input_dim = input_size + c_embedding_size + review_embedding_size
+        else:
+            input_dim = input_size + c_embedding_size
         self.dis = nn.Sequential(
-            nn.Linear(input_size + c_embedding_size + review_embedding_size, 1024),
+            nn.Linear(input_dim, 1024),
             nn.ReLU(True),
             nn.Linear(1024, 128),
             nn.ReLU(True),
@@ -62,20 +67,28 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, rating_vector, c_vector, user_reviews):
+    def forward(self, rating_vector, c_vector, user_reviews=None):
         c_embedding = UserEmbedding(c_vector)
-        review_embedding = ReviewEmbedding(user_reviews)
-        data_c = torch.cat((rating_vector, c_embedding, review_embedding), 1)
+        if self.use_reviews and use_reviews != None:
+            review_embedding = ReviewEmbedding(user_reviews)
+            data_c = torch.cat((rating_vector, c_embedding, review_embedding), 1)
+        else:
+            data_c = torch.cat((rating_vector, c_embedding), 1)
         result = self.dis(data_c)
         return result
 
 
 class Generator(nn.Module):
-    def __init__(self, input_size, c_embedding_size, review_embedding_size):
+    def __init__(self, input_size, c_embedding_size, review_embedding_size, use_reviews=True):
         self.input_size = input_size
+        self.use_reviews = use_reviews
         super(Generator, self).__init__()
+        if use_reviews:
+            input_dim = self.input_size + c_embedding_size + review_embedding_size
+        else:
+            input_dim = self.input_size + c_embedding_size
         self.gen = nn.Sequential(
-            nn.Linear(self.input_size + c_embedding_size + review_embedding_size, 256),
+            nn.Linear(input_dim, 256),
             nn.ReLU(True),
             nn.Linear(256, 512),
             nn.ReLU(True),
@@ -85,10 +98,13 @@ class Generator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, noise_vector, c_vector, user_reviews):
+    def forward(self, noise_vector, c_vector, user_reviews=None):
         c_embedding = UserEmbedding(c_vector)
-        review_embedding = ReviewEmbedding(user_reviews)
-        G_input = torch.cat([noise_vector, c_embedding, review_embedding], 1)
+        if use_reviews and use_reviews != None:
+            review_embedding = ReviewEmbedding(user_reviews)
+            G_input = torch.cat([noise_vector, c_embedding, review_embedding], 1)
+        else:
+            G_input = torch.cat([noise_vector, c_embedding], 1)
         result = self.gen(G_input)
         return result
 
@@ -107,16 +123,33 @@ class ItemEmbedding(nn.Module):
         return self.output_layer(item_embedding)
 
 
+use_reviews = True
+use_meta_condition = False
+
 # training
 num_epochs = 100
 # for user
 c_embedding_size = 128
 item_counts = 10000  # total number of items
 review_embedding_size = 128
-user_rating_generator = Generator(item_counts, c_embedding_size, review_embedding_size)
-user_missing_generator = Generator(item_counts, c_embedding_size, review_embedding_size)
-user_rating_discriminator = Discriminator(item_counts, c_embedding_size, review_embedding_size)
-user_missing_discriminator = Discriminator(item_counts, c_embedding_size, review_embedding_size)
+if use_reviews:
+    user_rating_generator = Generator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                      review_embedding_size=review_embedding_size, use_reviews=True)
+    user_missing_generator = Generator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                       review_embedding_size=review_embedding_size, use_reviews=True)
+    user_rating_discriminator = Discriminator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                              review_embedding_size=review_embedding_size, use_reviews=True)
+    user_missing_discriminator = Discriminator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                               review_embedding_size=review_embedding_size, use_reviews=True)
+else:
+    user_rating_generator = Generator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                      review_embedding_size=review_embedding_size, use_reviews=False)
+    user_missing_generator = Generator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                       review_embedding_size=review_embedding_size, use_reviews=False)
+    user_rating_discriminator = Discriminator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                              review_embedding_size=review_embedding_size, use_reviews=False)
+    user_missing_discriminator = Discriminator(input_size=item_counts, c_embedding_size=c_embedding_size,
+                                               review_embedding_size=review_embedding_size, use_reviews=False)
 
 wandb.watch(user_rating_generator)
 wandb.watch(user_missing_generator)
@@ -156,15 +189,25 @@ for epoch in range(num_epochs):
                 real_rating_vector = get_rating_vector(user)
                 real_missing_vector = get_missing_vector(user)
                 conditional_vector = get_conditional_vector(user)
-                reviews = get_all_reviews_of_user(user)
-                fake_rating_vector = user_rating_generator(real_rating_vector, conditional_vector, reviews)
+                if use_reviews:
+                    reviews = get_all_reviews_of_user(user)
+                else:
+                    reviews = None
 
-                fake_missing_vector = user_missing_generator(real_missing_vector, conditional_vector, reviews)
+                noise_vector = get_noise_vector()
+                fake_rating_vector = user_rating_generator(noise_vector, conditional_vector, reviews)
+
+                fake_missing_vector = user_missing_generator(noise_vector, conditional_vector, reviews)
 
                 fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
                 fake_rating_results = user_rating_discriminator(fake_rating_vector_with_missing, conditional_vector,
                                                                 reviews)
                 fake_missing_results = user_missing_discriminator(fake_missing_vector, conditional_vector, reviews)
+
+                '''
+                so for generator: if results are fake it should give values near to 0 and if its give values near to 1 then its not good so 
+                penalize. 
+                '''
 
                 g_loss += (np.log(1. - fake_rating_results.detach().numpy()) + np.log(
                     1. - fake_missing_results.detach().numpy()))
@@ -183,10 +226,14 @@ for epoch in range(num_epochs):
                 real_rating_vector = get_rating_vector(user)
                 real_missing_vector = get_missing_vector(user)
                 conditional_vector = get_conditional_vector(user)
-                reviews = get_all_reviews_of_user(user)
-                fake_rating_vector = user_rating_generator(real_rating_vector, conditional_vector, reviews)
+                if use_reviews:
+                    reviews = get_all_reviews_of_user(user)
+                else:
+                    reviews = None
+                noise_vector = get_noise_vector()
+                fake_rating_vector = user_rating_generator(noise_vector, conditional_vector, reviews)
 
-                fake_missing_vector = user_missing_generator(real_missing_vector, conditional_vector, reviews)
+                fake_missing_vector = user_missing_generator(noise_vector, conditional_vector, reviews)
                 fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
                 fake_rating_results = user_rating_discriminator(fake_rating_vector_with_missing, conditional_vector,
                                                                 reviews)
@@ -203,10 +250,10 @@ for epoch in range(num_epochs):
             user_rating_d_optimizer.zero_grad()
             user_missing_d_optimizer.step()
 
-    # run on test data set
+    # todo: run on test data set
+
     wandb.log({
         'epoch': epoch,
-        'generator_loss': 0.00, # todo: update it when get loss on test data
-        'discriminator_loss': 0.123 # # todo: update it when get loss on test data
+        'generator_loss': 0.00,  # todo: update it when get loss on test data
+        'discriminator_loss': 0.123  # # todo: update it when get loss on test data
     })
-

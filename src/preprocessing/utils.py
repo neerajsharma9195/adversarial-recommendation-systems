@@ -16,3 +16,7 @@ def get_conditional_vector(user_id):
 def get_all_reviews_of_user(user_id):
     # todo: Get all reviews for user
     pass
+
+
+def get_noise_vector():
+    pass
