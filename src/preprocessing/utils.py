@@ -21,11 +21,3 @@ def get_all_reviews_of_user(user_id):
 def get_noise_vector():
     pass
 
-
-'''
-create the batches
-
-user_id: []
-item_id: []
-
-'''
