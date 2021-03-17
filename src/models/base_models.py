@@ -64,13 +64,12 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, rating_vector, c_vector, user_reviews=None):
-        c_embedding = user_embedding_obj(c_vector)[torch.argmax(c_vector, axis=0)]
+    def forward(self, rating_vector, embedding_vector, user_reviews=None):
         if self.use_reviews and use_reviews != None:
             review_embedding = ReviewEmbedding(user_reviews)
-            data_c = torch.cat((rating_vector, c_embedding, review_embedding), 0)
+            data_c = torch.cat((rating_vector, embedding_vector, review_embedding), 0)
         else:
-            data_c = torch.cat((rating_vector, c_embedding), 0)
+            data_c = torch.cat((rating_vector, embedding_vector), 0)
         result = self.dis(data_c)
         return result
 
@@ -96,12 +95,11 @@ class Generator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, noise_vector, c_vector, user_reviews=None):
-        c_embedding = user_embedding_obj(c_vector)[torch.argmax(c_vector, axis=0)]
+    def forward(self, noise_vector, embedding_vector, user_reviews=None):
         if use_reviews and use_reviews != None:
             review_embedding = ReviewEmbedding(user_reviews)
-            G_input = torch.cat((noise_vector, c_embedding, review_embedding), 0)
+            G_input = torch.cat((noise_vector, embedding_vector, review_embedding), 0)
         else:
-            G_input = torch.cat((noise_vector, c_embedding), 0)
+            G_input = torch.cat((noise_vector, embedding_vector), 0)
         result = self.gen(G_input)
         return result
