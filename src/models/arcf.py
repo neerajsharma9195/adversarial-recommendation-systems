@@ -44,7 +44,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 else:
                     reviews = None
 
-                embedding_representation = embedding(conditional_vector)
+                embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
                 fake_rating_vector = rating_generator(noise_vector, embedding_representation, reviews)
 
                 fake_missing_vector = missing_generator(noise_vector, embedding_representation, reviews)
@@ -76,7 +76,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 else:
                     reviews = None
 
-                embedding_representation = embedding(conditional_vector)
+                embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
                 fake_rating_vector = rating_generator(noise_vector, embedding_representation, reviews)
 
                 fake_missing_vector = missing_generator(noise_vector, embedding_representation, reviews)
