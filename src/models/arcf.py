@@ -3,6 +3,7 @@ from torch.autograd import Variable
 from src.preprocessing.utils import get_all_reviews_of_user, get_conditional_vector, get_missing_vector, \
     get_rating_vector, get_noise_vector
 from src.models.base_models import UserEncoder, ItemEncoder, Generator, Discriminator
+from src.preprocessing.tiny_review_embeddings import get_embedding
 
 import torch
 
@@ -41,18 +42,19 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 noise_vector = get_noise_vector(data)
                 if use_reviews:
                     reviews = get_all_reviews(data, is_user=is_user)
+                    review_embedding = get_embedding(reviews)
                 else:
-                    reviews = None
+                    review_embedding = None
 
                 embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
-                fake_rating_vector = rating_generator(noise_vector, embedding_representation, reviews)
+                fake_rating_vector = rating_generator(noise_vector, embedding_representation, review_embedding)
 
-                fake_missing_vector = missing_generator(noise_vector, embedding_representation, reviews)
+                fake_missing_vector = missing_generator(noise_vector, embedding_representation, review_embedding)
 
                 fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
                 fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, embedding_representation,
-                                                           reviews)
-                fake_missing_results = missing_discriminator(fake_missing_vector, embedding_representation, reviews)
+                                                           review_embedding)
+                fake_missing_results = missing_discriminator(fake_missing_vector, embedding_representation, review_embedding)
                 g_loss = g_loss.detach().numpy() + (np.log(1. - fake_rating_results.detach().numpy()) +
                                                     np.log(1. - fake_missing_results.detach().numpy()))
                 g_loss = Variable(g_loss, requires_grad=True)
@@ -73,20 +75,21 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 noise_vector = get_noise_vector(data)
                 if use_reviews:
                     reviews = get_all_reviews(data, is_user=is_user)
+                    review_embedding = get_embedding(reviews)
                 else:
-                    reviews = None
+                    review_embedding = None
 
                 embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
-                fake_rating_vector = rating_generator(noise_vector, embedding_representation, reviews)
+                fake_rating_vector = rating_generator(noise_vector, embedding_representation, review_embedding)
 
-                fake_missing_vector = missing_generator(noise_vector, embedding_representation, reviews)
+                fake_missing_vector = missing_generator(noise_vector, embedding_representation, review_embedding)
 
                 fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
                 fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, embedding_representation,
-                                                           reviews)
-                real_rating_results = rating_discriminator(real_rating_vector, embedding_representation, reviews)
-                fake_missing_results = missing_discriminator(fake_missing_vector, embedding_representation, reviews)
-                real_missing_results = missing_discriminator(real_missing_vector, embedding_representation, reviews)
+                                                           review_embedding)
+                real_rating_results = rating_discriminator(real_rating_vector, embedding_representation, review_embedding)
+                fake_missing_results = missing_discriminator(fake_missing_vector, embedding_representation, review_embedding)
+                real_missing_results = missing_discriminator(real_missing_vector, embedding_representation, review_embedding)
                 d_loss = d_loss.detach().numpy() - (
                         np.log(real_rating_results.detach().numpy()) + np.log(real_missing_results.detach().numpy())
                         + np.log(1. - fake_rating_results.detach().numpy()) +
