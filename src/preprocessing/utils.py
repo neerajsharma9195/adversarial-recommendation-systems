@@ -36,3 +36,10 @@ def get_review_by_id(user_id: int, dir=DATASET_DIR, data_name=HDF5_DATASET) -> n
         table = h5f.root[data_name]['Review']
         return table[user_id][Reviews_Idx.reviewText]
 
+def get_all_reviews_of_user(user_id):
+    # todo: Get all reviews for user
+    pass
+
+
+def get_noise_vector():
+    pass
