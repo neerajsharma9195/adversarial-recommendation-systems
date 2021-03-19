@@ -10,7 +10,7 @@ tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 model = BertModel.from_pretrained("bert-base-uncased")
 
 # Settings
-useGPU = False
+useGPU = True if torch.cuda.is_available() else False
 sentence_embedding_type = "CLS"  # "avg"
 review_embedding_type = "avg"  # other?
 
@@ -114,4 +114,4 @@ example_review3 = "Five Stars."
 
 example_reviews = [example_review, example_review2, example_review3]
 
-# get_embedding(example_reviews)
+print(get_embedding(example_reviews).shape)
