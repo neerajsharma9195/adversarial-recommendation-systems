@@ -61,7 +61,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                              review_embedding)
                 g_loss = g_loss.detach().numpy() + (np.log(1. - fake_rating_results.detach().numpy()) +
                                                     np.log(1. - fake_missing_results.detach().numpy()))
-                #  + alpha * regularization(fake_rating_vector_with_missing)
+                  + alpha * regularization(fake_rating_vector_with_missing)
                 g_loss = Variable(g_loss, requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
@@ -196,10 +196,10 @@ def train_user_ar(user_dataloader, num_users, user_embedding_dim,
     g_step = 5
     d_step = 2
     num_epochs = 100
-    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001)
-    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001)
-    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001)
-    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001)
+    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
 
     train(user_rating_generator, user_missing_generator, user_rating_discriminator, user_missing_discriminator,
           user_rating_g_optimizer, user_missing_g_optimizer,
@@ -240,10 +240,10 @@ def train_item_ar(item_dataloader, num_users, item_embedding_dim,
     g_step = 5
     d_step = 2
     num_epochs = 100
-    item_rating_g_optimizer = torch.optim.Adam(item_rating_generator.parameters(), lr=0.0001)
-    item_rating_d_optimizer = torch.optim.Adam(item_rating_discriminator.parameters(), lr=0.0001)
-    item_missing_g_optimizer = torch.optim.Adam(item_missing_generator.parameters(), lr=0.0001)
-    item_missing_d_optimizer = torch.optim.Adam(item_missing_discriminator.parameters(), lr=0.0001)
+    item_rating_g_optimizer = torch.optim.Adam(item_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    item_rating_d_optimizer = torch.optim.Adam(item_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    item_missing_g_optimizer = torch.optim.Adam(item_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    item_missing_d_optimizer = torch.optim.Adam(item_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
 
     train(item_rating_generator, item_missing_generator, item_rating_discriminator, item_missing_discriminator,
           item_rating_g_optimizer, item_missing_g_optimizer,
