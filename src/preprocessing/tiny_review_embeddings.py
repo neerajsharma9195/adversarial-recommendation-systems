@@ -4,27 +4,23 @@ import numpy as np
 import torch
 import nltk
 
-
-# Downloads
-nltk.download("punkt")
-tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-model = AutoModel.from_pretrained("prajjwal1/bert-tiny")
-
 # Settings
-useGPU = False
 sentence_embedding_type = "CLS"  # "avg"
 review_embedding_type = "avg"  # other?
-
-model.eval()
-if useGPU:
-    model.to("cuda")
-
+    
 
 def process(first_sentence, second_sentence):
     """Pre-process sentence(s) for BERT. Returns:
         - tokenized text (with [CLS] and [SEP] tokens)
         - segment sentence ids ([0s & 1s])
         - indexed tokens """
+    # Downloads
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        nltk.download('punkt')
+
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     tokenized_first = ["[CLS]"] + tokenizer.tokenize(first_sentence) + ["[SEP]"]
     if second_sentence:
         tokenized_second = tokenizer.tokenize(second_sentence) + ["[SEP]"]
@@ -39,13 +35,17 @@ def process(first_sentence, second_sentence):
 
 def get_sentence_embedding(sentence_pair):
     """returns sentence (pair) embedding of size [1, 768]"""
+    model = AutoModel.from_pretrained("prajjwal1/bert-tiny")
+    model.eval()
+
     first_sentence, second_sentence = sentence_pair
     tokenized_review, segments_ids, indexed_tokens = process(
         first_sentence, second_sentence
     )
     tokens_tensor = torch.tensor([indexed_tokens])
     segments_tensors = torch.tensor([segments_ids])
-    if useGPU:
+    if torch.cuda.is_available():
+        model.to("cuda")
         tokens_tensor = tokens_tensor.to("cuda")
         segments_tensors = segments_tensors.to("cuda")
 
@@ -103,16 +103,17 @@ def get_embedding(reviews):
     return mean
 
 
-example_review = "I love this product. \
-        I mean honestly, who doesn't love chocolate? \
-        Only sociopaths, I reckon. \
-        I'd eat this every day if I could. "
+if __name__ == "__main__":
+    example_review = "I love this product. \
+            I mean honestly, who doesn't love chocolate? \
+            Only sociopaths, I reckon. \
+            I'd eat this every day if I could. "
 
-example_review2 = "I hate this product. \
-        Wish I could ban it from existing "
+    example_review2 = "I hate this product. \
+            Wish I could ban it from existing "
 
-example_review3 = "Five Stars."
+    example_review3 = "Five Stars."
 
-example_reviews = [example_review, example_review2, example_review3]
+    example_reviews = [example_review, example_review2, example_review3]
 
-get_embedding(example_reviews)
+    get_embedding(example_reviews)
