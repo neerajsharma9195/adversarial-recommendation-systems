@@ -6,12 +6,15 @@ import nltk
 
 
 # Downloads
-nltk.download("punkt")
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
 tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
 model = AutoModel.from_pretrained("prajjwal1/bert-tiny")
 
 # Settings
-useGPU = False
+useGPU = True if torch.cuda.is_available() else False
 sentence_embedding_type = "CLS"  # "avg"
 review_embedding_type = "avg"  # other?
 

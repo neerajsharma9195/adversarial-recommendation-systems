@@ -7,11 +7,8 @@ import tables as tb
 import pandas as pd
 
 from collections import Counter
-from review_embeddings import get_embedding
+from tiny_review_embeddings import get_embedding
 from collections.abc import Iterable
-
-
-nltk.download('punkt')
 
 DATASET_DIR = "/mnt/nfs/scratch1/neerajsharma/amazon_data/"
 META_PREFIX = "meta_"
@@ -25,22 +22,23 @@ DATASET_NAME = {
 
 # Review Dataset Format
 class Reviews(tb.IsDescription):
-    reviewerID = tb.StringCol(itemsize=20)
-    summary    = tb.Float64Col(shape=(1, 768))
-    reviewText = tb.Float64Col(shape=(1, 768))
-    
+    reviewerID = tb.StringCol(itemsize=20)    
+    reviewText = tb.Float64Col(shape=(1, 128))
+
+    # `summary` is ignored for now
+    # summary    = tb.Float64Col(shape=(1, 128))
 
 
 # Meta-data Dataset Format (is not used yet)
 class Metadata(tb.IsDescription):
     # Temporary config
     asin      = tb.StringCol(itemsize=20)
-    title     = tb.Float64Col(shape=(1, 768))
-    category  = tb.Float64Col(shape=(1, 768))
-    brand     = tb.Float64Col(shape=(1, 768))
-    also_buy  = tb.Float64Col(shape=(1, 768))
-    also_view = tb.Float64Col(shape=(1, 768))
-    price     = tb.Float64Col(shape=(1, 768))
+    title     = tb.Float64Col(shape=(1, 128))
+    category  = tb.Float64Col(shape=(1, 128))
+    brand     = tb.Float64Col(shape=(1, 128))
+    also_buy  = tb.Float64Col(shape=(1, 128))
+    also_view = tb.Float64Col(shape=(1, 128))
+    price     = tb.Float64Col(shape=(1, 128))
 
 
 def parse(path: str):
@@ -70,8 +68,9 @@ def getAmazonData(data_name: str, num_entry='all') -> pd.DataFrame:
     except KeyError:
         print(f"Dataset '{data_name}' is not supported!")
 
-def save_review_dataset(data_name: str, dataset=None, agg_func=get_embedding, 
-                        dir=DATASET_DIR, hdf5_name=HDF5_DATASET, min_item_review=5) -> None:
+def save_review_dataset(data_name: str, dataset=None, agg_func=get_embedding,
+                        dir=DATASET_DIR, hdf5_name=HDF5_DATASET, categories=['reviewText'],
+                        min_item_reviews=100, min_user_reviews=3, max_length=256) -> None:
     if dataset is not None:
         assert 'asin' in dataset.columns
         assert 'reviewerID' in dataset.columns
@@ -82,18 +81,36 @@ def save_review_dataset(data_name: str, dataset=None, agg_func=get_embedding,
     else:
         raise TypeError("'dataset' is neither a DataFrame nor a str!")
 
-    df = df[df['asin'].map(df['asin'].value_counts()) >= min_item_review]
+    # Trim HTML tags
+    df['reviewText'].replace(
+        to_replace=r"""<(\w|\d|\n|[().=,\-:;@#$%^&*\[\]"'+–/\/®°⁰!?{}|`~]| )+?>""",
+        value="",
+        regex=True,
+        inplace=True
+    )
+    df['reviewText'].replace(
+        to_replace=r"""&nbsp;""",
+        value=". ",
+        regex=True,
+        inplace=True
+    )
+
+    df = df[df['reviewText'].str.len() <= max_length]
+    df = df[df['reviewText'].notnull() | (df['reviewText'] == "  ") | (df['reviewText'] == " ") ]
     df = df[df['summary'].notnull()]
-    df = df[df['reviewText'].notnull()]
+    df = df[df['asin'].map(df['asin'].value_counts()) >= min_item_reviews]
+    df = df[df['reviewerID'].map(df['reviewerID'].value_counts()) >= min_user_reviews]
+
     grouped_df = df.groupby('reviewerID')
 
-    file_mode = 'a' if os.path.isfile(os.path.join(DATASET_DIR, HDF5_DATASET)) else 'w'
-    with tb.open_file(os.path.join(dir, hdf5_name), 'w') as h5f:
+    file_mode = 'a' if os.path.isfile(os.path.join(dir, hdf5_name)) else 'w'
+    with tb.open_file(os.path.join(dir, hdf5_name), file_mode) as h5f:
         # Get the HDF5 root group
         root = h5f.root
 
         # Create the group:
-        group = h5f.create_group(root, data_name)
+        if data_name not in str(h5f.list_nodes('/')):
+            group = h5f.create_group(root, data_name)
 
         # Now, create and fill the tables in Particles group
         cur_group = root[data_name]
@@ -111,19 +128,72 @@ def save_review_dataset(data_name: str, dataset=None, agg_func=get_embedding,
             try:
                 idx, val = d
                 review['reviewerID'] = idx
-                review['summary']    = agg_func(val["summary"]).cpu().detach().numpy()
-                review['reviewText'] = agg_func(val["reviewText"]).cpu().detach().numpy()
+                for col in categories:
+                    review[col]    = agg_func(list(filter(lambda x: len(x) > 0, val[col]))).cpu().detach().numpy()
             
                 # This injects the Record values
                 review.append()
             except:
-                print(f"Error Found when processing user \#{i}")
-                print(f"summary:    {val['summary']}")
-                print(f"reviewText: {val['reviewText']}")
+                print(f"Error Found when processing user #{i} {idx}")
+                for col in categories:
+                    print(f"{col}:    {val[col]}")
                 continue
     
         # Flush the table buffers
         table.flush()
+
+def save_user_item_interaction(data_name: str, dataset=None,
+                               dir=DATASET_DIR, hdf5_name=HDF5_DATASET,
+                               min_item_reviews=100, min_user_reviews=3, max_length=256) -> None:
+    if dataset is not None:
+        assert 'asin' in dataset.columns
+        assert 'reviewerID' in dataset.columns
+        assert 'overall' in dataset.columns
+        df = dataset
+    elif isinstance(data_name, str):
+        df = getAmazonData(data_name)
+    else:
+        raise TypeError("'dataset' is neither a DataFrame nor a str!")
+
+    # Trim HTML tags
+    df['reviewText'].replace(
+        to_replace=r"""<(\w|\d|\n|[().=,\-:;@#$%^&*\[\]"'+–/\/®°⁰!?{}|`~]| )+?>""",
+        value="",
+        regex=True,
+        inplace=True
+    )
+    df['reviewText'].replace(
+        to_replace=r"""&nbsp;""",
+        value=". ",
+        regex=True,
+        inplace=True
+    )
+
+    df = df[df['reviewText'].str.len() <= max_length]
+    df = df[df['reviewText'].notnull() | (df['reviewText'] == "  ") | (df['reviewText'] == " ") ]
+    df = df[df['summary'].notnull()]
+    df = df[df['asin'].map(df['asin'].value_counts()) >= min_item_reviews]
+    df = df[df['reviewerID'].map(df['reviewerID'].value_counts()) >= min_user_reviews]
+
+    df = df[['reviewerID', 'asin', 'overall']].groupby(['reviewerID', 'asin'])['overall']\
+                                              .sum().unstack().reset_index() \
+                                              .fillna(0).set_index('reviewerID')
+
+    file_mode = 'a' if os.path.isfile(os.path.join(dir, hdf5_name)) else 'w'
+    with tb.open_file(os.path.join(dir, hdf5_name), file_mode) as h5f:
+        # Get the HDF5 root group
+        root = h5f.root
+
+        # Create the group:
+        if data_name not in str(h5f.list_nodes('/')):
+            group = h5f.create_group(root, data_name)
+
+        # Now, create and fill the tables in Particles group
+        cur_group = root[data_name]
+
+        # Create table
+        filters = tb.Filters(complib='zlib', complevel=5)
+        h5f.create_carray(cur_group, 'Interactions', obj=df.to_numpy(), filters=filters)
 
 def save_meta_dataset(data_name: str, dataset=None, agg_func=lambda x: x, save_path="./") -> None:
     if dataset is not None:
@@ -159,6 +229,11 @@ def count_regex_match(dataset: pd.DataFrame, column: str, regex: str):
     return dataset[column].str.contains(regex).sum()
 
 def top_phrases(dataset: pd.DataFrame, column: str, phrase_length: int or Iterable, print_top50=False) -> pd.Series:
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        nltk.download('punkt')
+    
     if dataset[column].dtypes != object:
         raise TypeError(f"The targeted column '{column}' doesn't have the correct dtype 'object'!")
     if isinstance(phrase_length, int):
@@ -181,6 +256,11 @@ def top_phrases(dataset: pd.DataFrame, column: str, phrase_length: int or Iterab
     return phrase_counter
 
 def sentence_count(dataset: pd.DataFrame, column: str, print_top50=False) -> pd.Series:
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        nltk.download('punkt')
+    
     if dataset[column].dtypes != object:
         raise TypeError(f"The targeted column '{column}' doesn't have the correct dtype 'object'!")
 
@@ -202,3 +282,4 @@ def sentence_count(dataset: pd.DataFrame, column: str, print_top50=False) -> pd.
 if __name__ == '__main__':
     df = getAmazonData('food', 'all')
     save_review_dataset(data_name='food', dataset=df, agg_func=get_embedding)
+    save_user_item_interaction(data_name='food', dataset=df)
