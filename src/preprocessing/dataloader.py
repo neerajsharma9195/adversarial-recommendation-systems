@@ -7,7 +7,7 @@ from preprocessing import DATASET_DIR, HDF5_DATASET, DATASET_NAME
 from typing import Union, List, Tuple
 
 
-class Dataset(torch.utils.data.Dataset):
+class UserDataset(torch.utils.data.Dataset):
     """Implements Dataloader"""
     PATH = os.path.join(DATASET_DIR, HDF5_DATASET)
 
@@ -85,17 +85,27 @@ class Dataset(torch.utils.data.Dataset):
         return review_embedding, user_ratings
 
 
+class ItemDataset(UserDataset):
+    def __len__(self) -> int:
+        return self.numItems
+    
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+        if self.load_full:
+            item_ratings = self.interactions[:, idx]
+        else:
+            item_ratings = torch.from_numpy(self.interact_table[:, idx])
+        return item_ratings
+
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
-    dataset = Dataset(data_name='food', load_full=False)
+    dataset = ItemDataset(data_name='food', load_full=False)
     length = int(len(dataset)*0.5)
     train_set, val_set = torch.utils.data.random_split(dataset, [length, len(dataset)-length])
     loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=1)
     for i, batch in enumerate(loader):
         if i < 5:
-            review_embedding, user_ratings = batch
-            print(f"review_embedding: {review_embedding.size()}")
-            print(f"user_ratings    : {user_ratings.size()}")
+            item_ratings = batch
+            print(f"item_ratings: {item_ratings.size()}")
         else:
             break
