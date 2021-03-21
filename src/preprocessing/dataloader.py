@@ -28,11 +28,12 @@ class Dataset(torch.utils.data.Dataset):
         self.interact_table = self.h5f.root[data_name]['Interactions']
 
         self.numIDs, self.numItems = self.interact_table.shape
-        self.interactions = self.hdfarray_to_tensor(self.interact_table)
+        self.interactions = None
         self.reviewerIDs = None
         self.review_embeddings = None
 
         if self.load_full:
+            self.interactions = self.hdfarray_to_tensor(self.interact_table)
             self.reviewerIDs = self.get_reviewerIDs()
             self.review_embeddings = self.get_reviewEmbeddings()
             self.h5f.close()
@@ -67,7 +68,7 @@ class Dataset(torch.utils.data.Dataset):
         if style == 'tensor':
             return self.interactions
         elif style == 'numpy':
-            return self.hdfarray_to_numpy(self.interact_table)
+            return self.interactions.numpy()
         else:
             raise NameError("style must be 'tensor' or 'numpy'!")
     
@@ -77,16 +78,24 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.load_full:
             review_embedding = self.review_embeddings[idx]
+            user_ratings = self.interactions[idx]
         else:
             review_embedding = torch.from_numpy(self.review_table[idx]['reviewText'])
-        user_ratings = self.interactions[idx]
+            user_ratings = torch.from_numpy(self.interact_table[idx])
         return review_embedding, user_ratings
 
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
-    dataset = Dataset(data_name='food', load_full=True)
-    loader = DataLoader(dataset, batch_size=12, shuffle=True, num_workers=6)
+    dataset = Dataset(data_name='food', load_full=False)
+    length = int(len(dataset)*0.5)
+    train_set, val_set = torch.utils.data.random_split(dataset, [length, len(dataset)-length])
+    loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=1)
     for i, batch in enumerate(loader):
-        print(i, batch)
+        if i < 5:
+            review_embedding, user_ratings = batch
+            print(f"review_embedding: {review_embedding.size()}")
+            print(f"user_ratings    : {user_ratings.size()}")
+        else:
+            break
