@@ -58,8 +58,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                            review_embedding)
                 fake_missing_results = missing_discriminator(fake_missing_vector, rating_vector,
                                                              review_embedding)
-                g_loss = g_loss.detach().numpy() + (np.log(1. - fake_rating_results.detach().numpy()) +
-                                                    np.log(1. - fake_missing_results.detach().numpy()))
+                g_loss = g_loss.cpu().detach().numpy() + (np.log(1. - fake_rating_results.cpu().detach().numpy()) +
+                                                    np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 g_loss = Variable(g_loss, requires_grad=True, device=device)
 
             g_loss = torch.mean(g_loss)
@@ -96,10 +96,10 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                              review_embedding)
                 real_missing_results = missing_discriminator(real_missing_vector, real_rating_vector,
                                                              review_embedding)
-                d_loss = d_loss.detach().numpy() - (
-                        np.log(real_rating_results.detach().numpy()) + np.log(real_missing_results.detach().numpy())
-                        + np.log(1. - fake_rating_results.detach().numpy()) +
-                        np.log(1. - fake_missing_results.detach().numpy()))
+                d_loss = d_loss.cpu().detach().numpy() - (
+                        np.log(real_rating_results.cpu().detach().numpy()) + np.log(real_missing_results.cpu().detach().numpy())
+                        + np.log(1. - fake_rating_results.cpu().detach().numpy()) +
+                        np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 d_loss = Variable(d_loss, requires_grad=True, device=device)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
