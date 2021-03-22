@@ -20,7 +20,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
           rating_d_optimizer, missing_d_optimizer,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size, embedding_size=128,
-          is_user=True, use_reviews=False, output_path="/mnt/nfs/work1/696ds-s21/neerajsharma/model_params"):
+          is_user=True, use_reviews=False, output_path="/mnt/nfs/scratch1/neerajsharma/model_params"):
     # if is_user:
     #     embedding = UserEncoder(num_users, embedding_size).to(device)
     # else:
