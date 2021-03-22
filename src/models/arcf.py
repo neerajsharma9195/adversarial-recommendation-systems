@@ -35,7 +35,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
         epoch_g_loss = 0
         epoch_d_loss = 0
         for step in range(g_step):
-            g_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
+            g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, conditional_vector = batch
                 rating_vector = rating_vector.to(device)
@@ -43,9 +43,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((rating_vector>0)*1).to(device)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
-                print("noise vector dtype {}".format(noise_vector.dtype))
-                print("rating vector dtype {}".format(rating_vector.dtype))
-                print("review embedding dtype {}".format(review_embedding.dtype))
+                # print("noise vector dtype {}".format(noise_vector.dtype))
+                # print("rating vector dtype {}".format(rating_vector.dtype))
+                # print("review embedding dtype {}".format(review_embedding.dtype))
                 if not use_reviews:
                     review_embedding = None
                 # embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
@@ -60,7 +60,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                              review_embedding)
                 g_loss = g_loss.detach().numpy() + (np.log(1. - fake_rating_results.detach().numpy()) +
                                                     np.log(1. - fake_missing_results.detach().numpy()))
-                g_loss = Variable(g_loss, requires_grad=True)
+                g_loss = Variable(g_loss, requires_grad=True, device=device)
 
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
@@ -71,7 +71,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             missing_g_optimizer.step()
 
         for step in range(d_step):
-            d_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
+            d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, real_rating_vector, conditional_vector = batch
                 real_rating_vector = real_rating_vector.to(device)
@@ -100,7 +100,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                         np.log(real_rating_results.detach().numpy()) + np.log(real_missing_results.detach().numpy())
                         + np.log(1. - fake_rating_results.detach().numpy()) +
                         np.log(1. - fake_missing_results.detach().numpy()))
-                d_loss = Variable(d_loss, requires_grad=True)
+                d_loss = Variable(d_loss, requires_grad=True, device=device)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
