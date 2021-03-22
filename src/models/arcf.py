@@ -59,7 +59,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
 
                 if i % 10000 == 0:
-                    print("g step {} processed {}".format(step, i))
+                    print("epoch {} g step {} processed {}".format(epoch, step, i))
 
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
@@ -101,7 +101,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
 
                 if i % 10000 == 0:
-                    print("d step {} processed {}".format(step, i))
+                    print("epoch {} d step {} processed {}".format(epoch, step, i))
 
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
