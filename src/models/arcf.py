@@ -60,7 +60,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                              review_embedding)
                 g_loss = g_loss.cpu().detach().numpy() + (np.log(1. - fake_rating_results.cpu().detach().numpy()) +
                                                     np.log(1. - fake_missing_results.cpu().detach().numpy()))
-                g_loss = Variable(g_loss, requires_grad=True)
+                g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
 
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
@@ -100,7 +100,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                         np.log(real_rating_results.cpu().detach().numpy()) + np.log(real_missing_results.cpu().detach().numpy())
                         + np.log(1. - fake_rating_results.cpu().detach().numpy()) +
                         np.log(1. - fake_missing_results.cpu().detach().numpy()))
-                d_loss = Variable(d_loss, requires_grad=True)
+                d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
