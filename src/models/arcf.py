@@ -1,9 +1,6 @@
 import numpy as np
 from torch.autograd import Variable
-from src.preprocessing.utils import get_all_reviews_of_user, get_conditional_vector, get_missing_vector, \
-    get_rating_vector, get_noise_vector
-from src.models.base_models import UserEncoder, ItemEncoder, Generator, Discriminator
-from src.preprocessing.tiny_review_embeddings import get_embedding
+from models.base_models import UserEncoder, ItemEncoder, Generator, Discriminator
 import torch.nn as nn
 import os
 import torch

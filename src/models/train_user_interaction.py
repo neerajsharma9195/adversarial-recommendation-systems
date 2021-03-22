@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 import torch
-from src.preprocessing.dataloader import UserDataset
-from src.models.arcf import train_user_ar
+from preprocessing.dataloader import UserDataset
+from models.arcf import train_user_ar
 
 dataset = UserDataset(data_name='food', load_full=False)
 length = int(len(dataset) * 0.8)
