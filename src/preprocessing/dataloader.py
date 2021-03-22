@@ -88,7 +88,7 @@ class UserDataset(torch.utils.data.Dataset):
             conditional_vector = np.zeros(self.numIDs, dtype=np.long)
             conditional_vector[idx] = 1
             conditional_vector = torch.from_numpy(conditional_vector)
-        return review_embedding, user_ratings, conditional_vector
+        return review_embedding.astype(torch.float32), user_ratings.astype(torch.float32), conditional_vector
 
 
 class ItemDataset(UserDataset):
