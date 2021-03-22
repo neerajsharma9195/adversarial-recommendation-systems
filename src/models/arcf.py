@@ -38,11 +38,11 @@ def train(rating_generator, missing_generator, rating_discriminator,
             g_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, conditional_vector = batch
-                rating_vector = rating_vector.to(device)
-                conditional_vector = conditional_vector.to(device)
-                review_embedding = review_embedding.squeeze(0).to(device)
-                real_missing_vector = torch.tensor((rating_vector>0)*1).to(device)
-                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
+                rating_vector = rating_vector
+                conditional_vector = conditional_vector
+                review_embedding = review_embedding.squeeze(0)
+                real_missing_vector = torch.tensor((rating_vector>0)*1)
+                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32)
                 if use_reviews:
                     review_embedding = batch[0]
                 else:
@@ -74,9 +74,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
             d_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, real_rating_vector, conditional_vector = batch
-                rating_vector = rating_vector.to(device)
-                conditional_vector = conditional_vector.to(device)
-                review_embedding = review_embedding.squeeze(0).to(device)
+                # real_rating_vector = real_rating_vector.to(device)
+                # conditional_vector = conditional_vector.to(device)
+                review_embedding = review_embedding.squeeze(0) #.to(device)
                 real_missing_vector = torch.tensor((real_rating_vector > 0) * 1)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
                                             dtype=torch.float32)
