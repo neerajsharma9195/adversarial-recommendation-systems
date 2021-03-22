@@ -1,6 +1,6 @@
 import numpy as np
 from torch.autograd import Variable
-from models.base_models import UserEncoder, ItemEncoder, Generator, Discriminator
+from src.models.base_models import UserEncoder, ItemEncoder, Generator, Discriminator
 import torch.nn as nn
 import os
 import torch
