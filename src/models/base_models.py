@@ -21,7 +21,7 @@ class UserEncoder(nn.Module):
         first_output = nn.functional.relu(self.first_layer(embedded))
 
         final_output = self.dropout(nn.functional.relu(self.output_layer(first_output)))
-        return final_output
+        return final_output # shape=(input_dim, output_dim)
 
 
 class ItemEncoder(nn.Module):
@@ -66,9 +66,9 @@ class Discriminator(nn.Module):
 
     def forward(self, rating_vector, embedding_vector, review_embedding):
         if self.use_reviews:
-            data_c = torch.cat((rating_vector, embedding_vector, review_embedding), 0)
+            data_c = torch.cat((rating_vector, embedding_vector, review_embedding), dim=1)
         else:
-            data_c = torch.cat((rating_vector, embedding_vector), 0)
+            data_c = torch.cat((rating_vector, embedding_vector), dim=1)
         result = self.dis(data_c)
         return result
 
@@ -96,8 +96,8 @@ class Generator(nn.Module):
 
     def forward(self, noise_vector, embedding_vector, review_embedding):
         if self.use_reviews:
-            G_input = torch.cat((noise_vector, embedding_vector, review_embedding), 0)
+            G_input = torch.cat((noise_vector, embedding_vector, review_embedding), dim=1)
         else:
-            G_input = torch.cat((noise_vector, embedding_vector), 0)
+            G_input = torch.cat((noise_vector, embedding_vector), dim=1)
         result = self.gen(G_input)
         return result

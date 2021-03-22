@@ -7,7 +7,7 @@ import tables as tb
 import pandas as pd
 
 from collections import Counter
-from tiny_review_embeddings import get_embedding
+from src.preprocessing.tiny_review_embeddings import get_embedding
 from collections.abc import Iterable
 
 DATASET_DIR = "/mnt/nfs/scratch1/neerajsharma/amazon_data/"

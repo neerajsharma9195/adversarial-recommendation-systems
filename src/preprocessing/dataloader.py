@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 import tables as tb
-from preprocessing import DATASET_DIR, HDF5_DATASET, DATASET_NAME
+from src.preprocessing.preprocessing import DATASET_DIR, HDF5_DATASET, DATASET_NAME
 
 from typing import Union, List, Tuple
 
@@ -16,7 +16,7 @@ class UserDataset(torch.utils.data.Dataset):
         array = np.array(shape=hdfarray.shape, dtype=hdfarray.dtype)
         array[:] = hdfarray[:]
         return array
-    
+
     @staticmethod
     def hdfarray_to_tensor(hdfarray: tb.CArray):
         return torch.from_numpy(hdfarray[:])
@@ -26,11 +26,11 @@ class UserDataset(torch.utils.data.Dataset):
         self.h5f = tb.open_file(path, 'r')
         self.review_table = self.h5f.root[data_name]['Review']
         self.interact_table = self.h5f.root[data_name]['Interactions']
-
         self.numIDs, self.numItems = self.interact_table.shape
         self.interactions = None
         self.reviewerIDs = None
         self.review_embeddings = None
+        self.conditional_vectors = torch.diag(torch.ones(self.numIDs, dtype=torch.int64))
 
         if self.load_full:
             self.interactions = self.hdfarray_to_tensor(self.interact_table)
@@ -41,7 +41,7 @@ class UserDataset(torch.utils.data.Dataset):
     def get_reviewerID(self, idx) -> str:
         if self.reviewerIDs is None:
             return self.review_table[idx]['reviewerID'].decode('utf-8')
-                    
+
         return self.reviewerIDs[idx]
 
     def get_reviewerIDs(self) -> List[str]:
@@ -51,9 +51,9 @@ class UserDataset(torch.utils.data.Dataset):
                 self.review_table.iterrows()
             ))
             return reviewerIDs
-        
+
         return self.reviewerIDs
-        
+
     def get_reviewEmbeddings(self) -> List[torch.Tensor]:
         if self.review_embeddings is None:
             review_embeddings = list(map(
@@ -61,7 +61,7 @@ class UserDataset(torch.utils.data.Dataset):
                 self.review_table.iterrows()
             ))
             return review_embeddings
-        
+
         return self.review_embeddings
 
     def get_interactions(self, style='tensor') -> Union[torch.Tensor, np.ndarray]:
@@ -71,24 +71,25 @@ class UserDataset(torch.utils.data.Dataset):
             return self.interactions.numpy()
         else:
             raise NameError("style must be 'tensor' or 'numpy'!")
-    
+
     def __len__(self) -> int:
         return self.numIDs
-    
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if self.load_full:
             review_embedding = self.review_embeddings[idx]
             user_ratings = self.interactions[idx]
         else:
-            review_embedding = torch.from_numpy(self.review_table[idx]['reviewText'])
-            user_ratings = torch.from_numpy(self.interact_table[idx])
-        return review_embedding, user_ratings
+            review_embedding = torch.from_numpy(self.review_table[idx]['reviewText'].astype(np.float32))
+            user_ratings = torch.from_numpy(self.interact_table[idx].astype(np.float32))
+        conditional_vector = self.conditional_vectors[idx]
+        return review_embedding, user_ratings, conditional_vector
 
 
 class ItemDataset(UserDataset):
     def __len__(self) -> int:
         return self.numItems
-    
+
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.load_full:
             item_ratings = self.interactions[:, idx]
@@ -96,12 +97,13 @@ class ItemDataset(UserDataset):
             item_ratings = torch.from_numpy(self.interact_table[:, idx])
         return item_ratings
 
+
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
     dataset = ItemDataset(data_name='food', load_full=False)
-    length = int(len(dataset)*0.5)
-    train_set, val_set = torch.utils.data.random_split(dataset, [length, len(dataset)-length])
+    length = int(len(dataset) * 0.5)
+    train_set, val_set = torch.utils.data.random_split(dataset, [length, len(dataset) - length])
     loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=1)
     for i, batch in enumerate(loader):
         if i < 5:
