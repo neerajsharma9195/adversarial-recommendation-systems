@@ -62,6 +62,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                     np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
 
+                if i % 10000 == 0:
+                    print("g step {} processed {}".format(step, i))
+
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -101,6 +104,10 @@ def train(rating_generator, missing_generator, rating_discriminator,
                         + np.log(1. - fake_rating_results.cpu().detach().numpy()) +
                         np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
+
+                if i % 10000 == 0:
+                    print("d step {} processed {}".format(step, i))
+
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()

@@ -99,6 +99,5 @@ class Generator(nn.Module):
             G_input = torch.cat((noise_vector, embedding_vector, review_embedding), dim=1)
         else:
             G_input = torch.cat((noise_vector, embedding_vector), dim=1)
-        print("G_input shape {}".format(G_input.shape))
         result = self.gen(G_input)
         return result
