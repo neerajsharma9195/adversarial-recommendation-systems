@@ -27,17 +27,15 @@ class UserDataset(torch.utils.data.Dataset):
         self.review_table = self.h5f.root[data_name]['Review']
         self.interact_table = self.h5f.root[data_name]['Interactions']
         self.numIDs, self.numItems = self.interact_table.shape
-        self.conditional_table = np.diag(np.ones(self.numIDs))
         self.interactions = None
         self.reviewerIDs = None
         self.review_embeddings = None
-        self.conditional_vectors = None
+        self.conditional_vectors = torch.diag(torch.ones(self.numIDs, dtype=torch.int64))
 
         if self.load_full:
             self.interactions = self.hdfarray_to_tensor(self.interact_table)
             self.reviewerIDs = self.get_reviewerIDs()
             self.review_embeddings = self.get_reviewEmbeddings()
-            self.conditional_vectors = torch.tensor(np.diag(np.ones(self.numIDs)), dtype=torch.int)
             self.h5f.close()
 
     def get_reviewerID(self, idx) -> str:
@@ -81,13 +79,10 @@ class UserDataset(torch.utils.data.Dataset):
         if self.load_full:
             review_embedding = self.review_embeddings[idx]
             user_ratings = self.interactions[idx]
-            conditional_vector = self.conditional_vectors[idx]
         else:
             review_embedding = torch.from_numpy(self.review_table[idx]['reviewText'].astype(np.float32))
             user_ratings = torch.from_numpy(self.interact_table[idx].astype(np.float32))
-            conditional_vector = np.zeros(self.numIDs, dtype=np.long)
-            conditional_vector[idx] = 1
-            conditional_vector = torch.from_numpy(conditional_vector)
+        conditional_vector = self.conditional_vectors[idx]
         return review_embedding, user_ratings, conditional_vector
 
 

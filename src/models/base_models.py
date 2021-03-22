@@ -21,7 +21,7 @@ class UserEncoder(nn.Module):
         first_output = nn.functional.relu(self.first_layer(embedded))
 
         final_output = self.dropout(nn.functional.relu(self.output_layer(first_output)))
-        return final_output
+        return final_output # shape=(input_dim, output_dim)
 
 
 class ItemEncoder(nn.Module):
