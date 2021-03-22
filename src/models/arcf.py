@@ -1,9 +1,6 @@
 import numpy as np
 from torch.autograd import Variable
-from src.preprocessing.utils import get_all_reviews_of_user, get_conditional_vector, get_missing_vector, \
-    get_rating_vector, get_noise_vector
 from src.models.base_models import UserEncoder, ItemEncoder, Generator, Discriminator
-from src.preprocessing.tiny_review_embeddings import get_embedding
 import torch.nn as nn
 import os
 import torch
@@ -16,53 +13,54 @@ wandb.init(project="adversarial-recommendation")
 # 2. Save model inputs and hyperparameters
 config = wandb.config
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
           rating_d_optimizer, missing_d_optimizer,
-          train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, embedding_size=128,
-          is_user=True, use_reviews=False, alpha=0.2, output_path="/mnt/nfs/work1/696ds-s21/neerajsharma/model_params"):
-    if is_user:
-        embedding = UserEncoder(num_users, embedding_size)
-    else:
-        embedding = ItemEncoder(num_items, embedding_size)
-    embedding.requires_grad_(True)
+          train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size, embedding_size=128,
+          is_user=True, use_reviews=False, output_path="/mnt/nfs/scratch1/neerajsharma/model_params"):
+    # if is_user:
+    #     embedding = UserEncoder(num_users, embedding_size).to(device)
+    # else:
+    #     embedding = ItemEncoder(num_items, embedding_size).to(device)
+    # embedding.requires_grad_(True)
     rating_generator.train()
     missing_generator.train()
     rating_discriminator.train()
     missing_discriminator.train()
-    regularization = nn.MSELoss()
     best_performance = 0
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
+        for step in range(g_step):
+            g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+            for i, batch in enumerate(train_dataloader):
+                review_embedding, rating_vector, conditional_vector = batch
+                rating_vector = rating_vector.to(device)
+                review_embedding = review_embedding.squeeze(0).to(device)
+                real_missing_vector = torch.tensor((rating_vector>0)*1).to(device)
+                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
+                # if not use_reviews:
+                #     review_embedding = None
+                # embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
+                fake_rating_vector = rating_generator(noise_vector, rating_vector, review_embedding)
 
-        for step in g_step:
-            g_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
-            for data in train_dataloader:
-                real_missing_vector = get_missing_vector(data)
-                conditional_vector = get_conditional_vector(data)
-                noise_vector = get_noise_vector(data)
-                if use_reviews:
-                    reviews = get_all_reviews(data, is_user=is_user)
-                    review_embedding = get_embedding(reviews)
-                else:
-                    review_embedding = None
-
-                embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
-                fake_rating_vector = rating_generator(noise_vector, embedding_representation, review_embedding)
-
-                fake_missing_vector = missing_generator(noise_vector, embedding_representation, review_embedding)
+                fake_missing_vector = missing_generator(noise_vector, rating_vector, review_embedding)
 
                 fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
-                fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, embedding_representation,
+                fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, rating_vector,
                                                            review_embedding)
-                fake_missing_results = missing_discriminator(fake_missing_vector, embedding_representation,
+                fake_missing_results = missing_discriminator(fake_missing_vector, rating_vector,
                                                              review_embedding)
-                g_loss = g_loss.detach().numpy() + (np.log(1. - fake_rating_results.detach().numpy()) +
-                                                    np.log(1. - fake_missing_results.detach().numpy()))
-                  + alpha * regularization(fake_rating_vector_with_missing)
-                g_loss = Variable(g_loss, requires_grad=True)
+                g_loss = g_loss.cpu().detach().numpy() + (np.log(1. - fake_rating_results.cpu().detach().numpy()) +
+                                                    np.log(1. - fake_missing_results.cpu().detach().numpy()))
+                g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
+
+                if i % 10000 == 0:
+                    print("epoch {} g step {} processed {}".format(epoch, step, i))
+
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -72,37 +70,39 @@ def train(rating_generator, missing_generator, rating_discriminator,
             missing_g_optimizer.step()
 
         for step in range(d_step):
-            d_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
-            for data in train_dataloader:
-                real_rating_vector = get_rating_vector(data)
-                real_missing_vector = get_missing_vector(data)
-                conditional_vector = get_conditional_vector(data)
-                noise_vector = get_noise_vector(data)
-                if use_reviews:
-                    reviews = get_all_reviews(data, is_user=is_user)
-                    review_embedding = get_embedding(reviews)
-                else:
-                    review_embedding = None
+            d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+            for i, batch in enumerate(train_dataloader):
+                review_embedding, real_rating_vector, conditional_vector = batch
+                real_rating_vector = real_rating_vector.to(device)
+                review_embedding = review_embedding.squeeze(0).to(device)
+                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).to(device)
+                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
+                                            dtype=torch.float32).to(device)
+                # if not use_reviews:
+                #     review_embedding = None
+                # embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
+                fake_rating_vector = rating_generator(noise_vector, real_rating_vector, review_embedding)
 
-                embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
-                fake_rating_vector = rating_generator(noise_vector, embedding_representation, review_embedding)
-
-                fake_missing_vector = missing_generator(noise_vector, embedding_representation, review_embedding)
+                fake_missing_vector = missing_generator(noise_vector, real_rating_vector, review_embedding)
 
                 fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
-                fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, embedding_representation,
+                fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, real_rating_vector,
                                                            review_embedding)
-                real_rating_results = rating_discriminator(real_rating_vector, embedding_representation,
+                real_rating_results = rating_discriminator(real_rating_vector, real_rating_vector,
                                                            review_embedding)
-                fake_missing_results = missing_discriminator(fake_missing_vector, embedding_representation,
+                fake_missing_results = missing_discriminator(fake_missing_vector, real_rating_vector,
                                                              review_embedding)
-                real_missing_results = missing_discriminator(real_missing_vector, embedding_representation,
+                real_missing_results = missing_discriminator(real_missing_vector, real_rating_vector,
                                                              review_embedding)
-                d_loss = d_loss.detach().numpy() - (
-                        np.log(real_rating_results.detach().numpy()) + np.log(real_missing_results.detach().numpy())
-                        + np.log(1. - fake_rating_results.detach().numpy()) +
-                        np.log(1. - fake_missing_results.detach().numpy()))
-                d_loss = Variable(d_loss, requires_grad=True)
+                d_loss = d_loss.cpu().detach().numpy() - (
+                        np.log(real_rating_results.cpu().detach().numpy()) + np.log(real_missing_results.cpu().detach().numpy())
+                        + np.log(1. - fake_rating_results.cpu().detach().numpy()) +
+                        np.log(1. - fake_missing_results.cpu().detach().numpy()))
+                d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
+
+                if i % 10000 == 0:
+                    print("epoch {} d step {} processed {}".format(epoch, step, i))
+
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
@@ -111,7 +111,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.step()
 
-        embedding.zero_grad()
+        # embedding.zero_grad()
 
         if is_user:
             wandb.log({
@@ -163,31 +163,31 @@ def evaluate_cf(test_data, rating_generator, missing_generator):
     return 0
 
 
-def train_user_ar(user_dataloader, num_users, user_embedding_dim,
+def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
                   use_reviews=False):
     if use_reviews:
         user_rating_generator = Generator(input_size=noise_size, item_count=num_items,
-                                          c_embedding_size=user_embedding_dim,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                          c_embedding_size=num_items,
+                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
         user_missing_generator = Generator(input_size=noise_size, item_count=num_items,
-                                           c_embedding_size=user_embedding_dim,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        user_rating_discriminator = Discriminator(input_size=num_items, c_embedding_size=user_embedding_dim,
-                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        user_missing_discriminator = Discriminator(input_size=num_items, c_embedding_size=user_embedding_dim,
-                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                           c_embedding_size=num_items,
+                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        user_rating_discriminator = Discriminator(input_size=num_items, c_embedding_size=num_items,
+                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        user_missing_discriminator = Discriminator(input_size=num_items, c_embedding_size=num_items,
+                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
     else:
         user_rating_generator = Generator(input_size=noise_size, item_count=num_items,
-                                          c_embedding_size=user_embedding_dim,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                          c_embedding_size=num_items,
+                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
         user_missing_generator = Generator(input_size=noise_size, item_count=num_items,
-                                           c_embedding_size=user_embedding_dim,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        user_rating_discriminator = Discriminator(input_size=num_items, c_embedding_size=user_embedding_dim,
-                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        user_missing_discriminator = Discriminator(input_size=num_items, c_embedding_size=user_embedding_dim,
-                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                           c_embedding_size=num_items,
+                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        user_rating_discriminator = Discriminator(input_size=num_items, c_embedding_size=num_items,
+                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        user_missing_discriminator = Discriminator(input_size=num_items, c_embedding_size=num_items,
+                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
 
     wandb.watch(user_rating_generator)
     wandb.watch(user_missing_generator)
@@ -201,10 +201,12 @@ def train_user_ar(user_dataloader, num_users, user_embedding_dim,
     user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
     user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
 
-    train(user_rating_generator, user_missing_generator, user_rating_discriminator, user_missing_discriminator,
-          user_rating_g_optimizer, user_missing_g_optimizer,
-          user_rating_d_optimizer, user_missing_d_optimizer,
-          user_dataloader, num_epochs, g_step, d_step, num_users, num_items, is_user=True)
+    train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
+          rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,
+          rating_g_optimizer=user_rating_g_optimizer, missing_g_optimizer=user_missing_g_optimizer,
+          rating_d_optimizer=user_rating_d_optimizer, missing_d_optimizer=user_missing_d_optimizer,
+          train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
+          epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True)
 
 
 def train_item_ar(item_dataloader, num_users, item_embedding_dim,
@@ -212,26 +214,26 @@ def train_item_ar(item_dataloader, num_users, item_embedding_dim,
                   use_reviews=False):
     if use_reviews:
         item_rating_generator = Generator(input_size=noise_size, item_count=num_users,
-                                          c_embedding_size=item_embedding_dim,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                          c_embedding_size=num_users,
+                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
         item_missing_generator = Generator(input_size=noise_size, item_count=num_users,
-                                           c_embedding_size=item_embedding_dim,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        item_rating_discriminator = Discriminator(input_size=num_users, c_embedding_size=item_embedding_dim,
-                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        item_missing_discriminator = Discriminator(input_size=num_users, c_embedding_size=item_embedding_dim,
-                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                           c_embedding_size=num_users,
+                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        item_rating_discriminator = Discriminator(input_size=num_users, c_embedding_size=num_users,
+                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        item_missing_discriminator = Discriminator(input_size=num_users, c_embedding_size=num_users,
+                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
     else:
         item_rating_generator = Generator(input_size=noise_size, item_count=num_users,
-                                          c_embedding_size=item_embedding_dim,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                          c_embedding_size=num_users,
+                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
         item_missing_generator = Generator(input_size=noise_size, item_count=num_users,
-                                           c_embedding_size=item_embedding_dim,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        item_rating_discriminator = Discriminator(input_size=num_users, c_embedding_size=item_embedding_dim,
-                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews)
-        item_missing_discriminator = Discriminator(input_size=num_users, c_embedding_size=item_embedding_dim,
-                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews)
+                                           c_embedding_size=num_users,
+                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        item_rating_discriminator = Discriminator(input_size=num_users, c_embedding_size=num_users,
+                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
+        item_missing_discriminator = Discriminator(input_size=num_users, c_embedding_size=num_users,
+                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
 
     wandb.watch(item_rating_generator)
     wandb.watch(item_missing_generator)
@@ -248,4 +250,4 @@ def train_item_ar(item_dataloader, num_users, item_embedding_dim,
     train(item_rating_generator, item_missing_generator, item_rating_discriminator, item_missing_discriminator,
           item_rating_g_optimizer, item_missing_g_optimizer,
           item_rating_d_optimizer, item_missing_d_optimizer,
-          item_dataloader, num_epochs, g_step, d_step, num_users, num_items, is_user=False)
+          item_dataloader, num_epochs, g_step, d_step, num_users, num_items, noise_size, is_user=False)
