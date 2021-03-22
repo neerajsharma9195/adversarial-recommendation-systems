@@ -83,12 +83,12 @@ class UserDataset(torch.utils.data.Dataset):
             user_ratings = self.interactions[idx]
             conditional_vector = self.conditional_vectors[idx]
         else:
-            review_embedding = torch.from_numpy(self.review_table[idx]['reviewText'])
-            user_ratings = torch.from_numpy(self.interact_table[idx])
+            review_embedding = torch.from_numpy(self.review_table[idx]['reviewText'].astype(np.float32))
+            user_ratings = torch.from_numpy(self.interact_table[idx].astype(np.float32))
             conditional_vector = np.zeros(self.numIDs, dtype=np.long)
             conditional_vector[idx] = 1
             conditional_vector = torch.from_numpy(conditional_vector)
-        return review_embedding.astype(torch.float32), user_ratings.astype(torch.float32), conditional_vector
+        return review_embedding, user_ratings, conditional_vector
 
 
 class ItemDataset(UserDataset):
