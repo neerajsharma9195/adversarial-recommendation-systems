@@ -20,7 +20,7 @@ config = wandb.config
 def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
           rating_d_optimizer, missing_d_optimizer,
-          train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, embedding_size=128,
+          train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size, embedding_size=128,
           is_user=True, use_reviews=False, alpha=0.2, output_path="/mnt/nfs/work1/696ds-s21/neerajsharma/model_params"):
     if is_user:
         embedding = UserEncoder(num_users, embedding_size)
@@ -31,21 +31,18 @@ def train(rating_generator, missing_generator, rating_discriminator,
     missing_generator.train()
     rating_discriminator.train()
     missing_discriminator.train()
-    regularization = nn.MSELoss()
     best_performance = 0
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
-
         for step in g_step:
             g_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
-            for data in train_dataloader:
-                real_missing_vector = get_missing_vector(data)
-                conditional_vector = get_conditional_vector(data)
-                noise_vector = get_noise_vector(data)
+            for i, batch in enumerate(train_dataloader):
+                review_embedding, rating_vector, conditional_vector = batch
+                real_missing_vector = torch.tensor((rating_vector>0)*1)
+                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32)
                 if use_reviews:
-                    reviews = get_all_reviews(data, is_user=is_user)
-                    review_embedding = get_embedding(reviews)
+                    review_embedding = batch[0]
                 else:
                     review_embedding = None
 
@@ -61,8 +58,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                              review_embedding)
                 g_loss = g_loss.detach().numpy() + (np.log(1. - fake_rating_results.detach().numpy()) +
                                                     np.log(1. - fake_missing_results.detach().numpy()))
-                  + alpha * regularization(fake_rating_vector_with_missing)
                 g_loss = Variable(g_loss, requires_grad=True)
+
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -73,17 +70,15 @@ def train(rating_generator, missing_generator, rating_discriminator,
 
         for step in range(d_step):
             d_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
-            for data in train_dataloader:
-                real_rating_vector = get_rating_vector(data)
-                real_missing_vector = get_missing_vector(data)
-                conditional_vector = get_conditional_vector(data)
-                noise_vector = get_noise_vector(data)
+            for i, batch in enumerate(train_dataloader):
+                review_embedding, real_rating_vector, conditional_vector = batch
+                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1)
+                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
+                                            dtype=torch.float32)
                 if use_reviews:
-                    reviews = get_all_reviews(data, is_user=is_user)
-                    review_embedding = get_embedding(reviews)
+                    review_embedding = batch[0]
                 else:
                     review_embedding = None
-
                 embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
                 fake_rating_vector = rating_generator(noise_vector, embedding_representation, review_embedding)
 
@@ -204,7 +199,7 @@ def train_user_ar(user_dataloader, num_users, user_embedding_dim,
     train(user_rating_generator, user_missing_generator, user_rating_discriminator, user_missing_discriminator,
           user_rating_g_optimizer, user_missing_g_optimizer,
           user_rating_d_optimizer, user_missing_d_optimizer,
-          user_dataloader, num_epochs, g_step, d_step, num_users, num_items, is_user=True)
+          user_dataloader, num_epochs, g_step, d_step, num_users, num_items, noise_size, is_user=True)
 
 
 def train_item_ar(item_dataloader, num_users, item_embedding_dim,
@@ -248,4 +243,4 @@ def train_item_ar(item_dataloader, num_users, item_embedding_dim,
     train(item_rating_generator, item_missing_generator, item_rating_discriminator, item_missing_discriminator,
           item_rating_g_optimizer, item_missing_g_optimizer,
           item_rating_d_optimizer, item_missing_d_optimizer,
-          item_dataloader, num_epochs, g_step, d_step, num_users, num_items, is_user=False)
+          item_dataloader, num_epochs, g_step, d_step, num_users, num_items, noise_size, is_user=False)
