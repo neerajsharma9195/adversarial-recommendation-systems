@@ -13,6 +13,8 @@ wandb.init(project="adversarial-recommendation")
 # 2. Save model inputs and hyperparameters
 config = wandb.config
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
@@ -32,12 +34,15 @@ def train(rating_generator, missing_generator, rating_discriminator,
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
-        for step in g_step:
+        for step in range(g_step):
             g_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, conditional_vector = batch
-                real_missing_vector = torch.tensor((rating_vector>0)*1)
-                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32)
+                rating_vector = rating_vector.to(device)
+                conditional_vector = conditional_vector.to(device)
+                review_embedding = review_embedding.squeeze(0).to(device)
+                real_missing_vector = torch.tensor((rating_vector>0)*1).to(device)
+                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
                 if use_reviews:
                     review_embedding = batch[0]
                 else:
@@ -69,6 +74,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
             d_loss = Variable(torch.tensor(0, dtype=torch.float32), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, real_rating_vector, conditional_vector = batch
+                rating_vector = rating_vector.to(device)
+                conditional_vector = conditional_vector.to(device)
+                review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((real_rating_vector > 0) * 1)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
                                             dtype=torch.float32)
@@ -155,7 +163,7 @@ def evaluate_cf(test_data, rating_generator, missing_generator):
     return 0
 
 
-def train_user_ar(user_dataloader, num_users, user_embedding_dim,
+def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
                   use_reviews=False):
     if use_reviews:
@@ -193,10 +201,12 @@ def train_user_ar(user_dataloader, num_users, user_embedding_dim,
     user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
     user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
 
-    train(user_rating_generator, user_missing_generator, user_rating_discriminator, user_missing_discriminator,
-          user_rating_g_optimizer, user_missing_g_optimizer,
-          user_rating_d_optimizer, user_missing_d_optimizer,
-          user_dataloader, num_epochs, g_step, d_step, num_users, num_items, noise_size, is_user=True)
+    train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
+          rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,
+          rating_g_optimizer=user_rating_g_optimizer, missing_g_optimizer=user_missing_g_optimizer,
+          rating_d_optimizer=user_rating_d_optimizer, missing_d_optimizer=user_missing_d_optimizer,
+          train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
+          epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True)
 
 
 def train_item_ar(item_dataloader, num_users, item_embedding_dim,

@@ -16,15 +16,12 @@ noise_size = 128
 for i, batch in enumerate(train_loader):
     if i < 5:
         review_embeddings, rating_vectors, conditional_vector = batch
-        print(review_embeddings.shape)
+        print(review_embeddings.squeeze(0).shape)
         print(rating_vectors.shape)
         print(conditional_vector.shape)
     else:
         break
 
-
-#train_user_ar(train_loader, numUsers, user_embedding_dim,noise_size, numItems, review_embedding_size=128, use_reviews=False)
-
-
-
-
+train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=test_loader,
+              num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
+              review_embedding_size=128, use_reviews=False)
