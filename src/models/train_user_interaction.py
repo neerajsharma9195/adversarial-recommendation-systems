@@ -9,8 +9,8 @@ torch.manual_seed(manualSeed)
 dataset = UserDataset(data_name='food', load_full=False)
 length = int(len(dataset) * 0.8)
 train_set, test_set = torch.utils.data.random_split(dataset, [length, len(dataset) - length])
-train_loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=1)
-test_loader = DataLoader(test_set, batch_size=1, shuffle=True, num_workers=1)
+train_loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=0)
+test_loader = DataLoader(test_set, batch_size=1, shuffle=True, num_workers=0)
 numUsers = dataset.numIDs
 numItems = dataset.numItems
 user_embedding_dim = 128
