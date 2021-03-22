@@ -13,14 +13,14 @@ numItems = dataset.numItems
 user_embedding_dim = 128
 noise_size = 128
 
-for i, batch in enumerate(train_loader):
-    if i < 5:
-        review_embeddings, rating_vectors, conditional_vector = batch
-        print(review_embeddings.squeeze(0).shape)
-        print(rating_vectors.shape)
-        print(conditional_vector.shape)
-    else:
-        break
+# for i, batch in enumerate(train_loader):
+#     if i < 5:
+#         review_embeddings, rating_vectors, conditional_vector = batch
+#         print(review_embeddings.squeeze(0).shape)
+#         print(rating_vectors.shape)
+#         print(conditional_vector.shape)
+#     else:
+#         break
 
 train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=test_loader,
               num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
