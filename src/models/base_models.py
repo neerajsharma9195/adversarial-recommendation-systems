@@ -66,9 +66,9 @@ class Discriminator(nn.Module):
 
     def forward(self, rating_vector, embedding_vector, review_embedding):
         if self.use_reviews:
-            data_c = torch.cat((rating_vector, embedding_vector, review_embedding), 0)
+            data_c = torch.cat((rating_vector, embedding_vector, review_embedding), dim=1)
         else:
-            data_c = torch.cat((rating_vector, embedding_vector), 0)
+            data_c = torch.cat((rating_vector, embedding_vector), dim=1)
         result = self.dis(data_c)
         return result
 
@@ -96,8 +96,9 @@ class Generator(nn.Module):
 
     def forward(self, noise_vector, embedding_vector, review_embedding):
         if self.use_reviews:
-            G_input = torch.cat((noise_vector, embedding_vector, review_embedding), 0)
+            G_input = torch.cat((noise_vector, embedding_vector, review_embedding), dim=1)
         else:
-            G_input = torch.cat((noise_vector, embedding_vector), 0)
+            G_input = torch.cat((noise_vector, embedding_vector), dim=1)
+        print("G_input shape {}".format(G_input.shape))
         result = self.gen(G_input)
         return result
