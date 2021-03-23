@@ -57,7 +57,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 g_loss = g_loss.cpu().detach().numpy() + (np.log(1. - fake_rating_results.cpu().detach().numpy()) +
                                                     np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
-
+                if not is_user:
+                    print("epoch {} g step {} processed {}".format(epoch, step, i))
                 if i % 10000 == 0:
                     print("epoch {} g step {} processed {}".format(epoch, step, i))
 
