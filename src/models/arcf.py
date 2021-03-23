@@ -37,7 +37,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
         for step in range(g_step):
             g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
-                review_embedding, rating_vector, conditional_vector = batch
+                review_embedding, rating_vector = batch
                 rating_vector = rating_vector.to(device)
                 review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((rating_vector>0)*1).to(device)
@@ -72,7 +72,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
         for step in range(d_step):
             d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
-                review_embedding, real_rating_vector, conditional_vector = batch
+                review_embedding, real_rating_vector = batch
                 real_rating_vector = real_rating_vector.to(device)
                 review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).to(device)
