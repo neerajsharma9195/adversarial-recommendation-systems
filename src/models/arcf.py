@@ -209,7 +209,7 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
           epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True)
 
 
-def train_item_ar(item_dataloader, num_users, item_embedding_dim,
+def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
                   use_reviews=False):
     if use_reviews:
@@ -247,7 +247,9 @@ def train_item_ar(item_dataloader, num_users, item_embedding_dim,
     item_missing_g_optimizer = torch.optim.Adam(item_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
     item_missing_d_optimizer = torch.optim.Adam(item_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
 
-    train(item_rating_generator, item_missing_generator, item_rating_discriminator, item_missing_discriminator,
-          item_rating_g_optimizer, item_missing_g_optimizer,
-          item_rating_d_optimizer, item_missing_d_optimizer,
-          item_dataloader, num_epochs, g_step, d_step, num_users, num_items, noise_size, is_user=False)
+    train(rating_generator=item_rating_generator, missing_generator=item_missing_generator,
+          rating_discriminator=item_rating_discriminator, missing_discriminator=item_missing_discriminator,
+          rating_g_optimizer=item_rating_g_optimizer, missing_g_optimizer=item_missing_g_optimizer,
+          rating_d_optimizer=item_rating_d_optimizer, missing_d_optimizer=item_missing_d_optimizer,
+          train_dataloader=item_train_dataloader, test_dataloader=item_test_dataloader, epochs=num_epochs,
+          g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False)
