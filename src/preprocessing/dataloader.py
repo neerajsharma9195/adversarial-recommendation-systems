@@ -109,7 +109,7 @@ class ItemDataset(UserDataset):
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.load_full:
-            item_ratings = self.interactions[:, idx]
+            item_ratings = self.interactions[:, idx].type(torch.float32)
         else:
             item_ratings = torch.from_numpy(self.interact_table[:, idx].astype(np.float32))
 
