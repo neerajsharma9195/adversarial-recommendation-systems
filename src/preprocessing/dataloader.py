@@ -75,7 +75,7 @@ class UserDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.numIDs
 
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.load_full:
             user_reviews_embedding = self.review_embeddings[idx]
             user_ratings = self.interactions[idx]
