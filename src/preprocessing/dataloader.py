@@ -92,13 +92,14 @@ class ItemDataset(UserDataset):
             idx = torch.masked_select(torch.arange(0, self.numIDs), mask)
             item_reviews = self.review_table[idx.numpy()]['reviewText'][:,-1,:]
             item_reviews_embedding = torch.from_numpy(
-                np.mean(item_reviews, axis=0, keepdims=True)
+                np.mean(item_reviews, axis=0, keepdims=True).astype(np.float32)
             )
         else:
             item_reviews_embedding = torch.mean(
                 input=self.review_embeddings[mask],
                 dim=0,
-                keepdim=True
+                keepdim=True,
+                dtype=torch.float32
             )
 
         return item_reviews_embedding
@@ -108,9 +109,9 @@ class ItemDataset(UserDataset):
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.load_full:
-            item_ratings = self.interactions[:, idx]
+            item_ratings = self.interactions[:, idx].type(torch.float32)
         else:
-            item_ratings = torch.from_numpy(self.interact_table[:, idx])
+            item_ratings = torch.from_numpy(self.interact_table[:, idx].astype(np.float32))
 
         mask = item_ratings > 0
         item_reviews_embedding = self.get_itemReviews(mask)

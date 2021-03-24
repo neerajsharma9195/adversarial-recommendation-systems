@@ -7,7 +7,7 @@ import random
 manualSeed = 42
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
-dataset = ItemDataset(data_name='food', load_full=False)
+dataset = ItemDataset(data_name='food', load_full=True)
 length = int(len(dataset) * 0.8)
 train_set, test_set = torch.utils.data.random_split(dataset, [length, len(dataset) - length])
 train_loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=0)

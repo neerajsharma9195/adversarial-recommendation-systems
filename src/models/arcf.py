@@ -57,7 +57,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 g_loss = g_loss.cpu().detach().numpy() + (np.log(1. - fake_rating_results.cpu().detach().numpy()) +
                                                     np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
-
+                if not is_user:
+                    if i % 1000 == 0:
+                        print("epoch {} g step {} processed {}".format(epoch, step, i))
                 if i % 10000 == 0:
                     print("epoch {} g step {} processed {}".format(epoch, step, i))
 
@@ -99,6 +101,10 @@ def train(rating_generator, missing_generator, rating_discriminator,
                         + np.log(1. - fake_rating_results.cpu().detach().numpy()) +
                         np.log(1. - fake_missing_results.cpu().detach().numpy()))
                 d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
+
+                if not is_user:
+                    if i%1000 == 0:
+                        print("epoch {} d step {} processed {}".format(epoch, step, i))
 
                 if i % 10000 == 0:
                     print("epoch {} d step {} processed {}".format(epoch, step, i))
@@ -160,6 +166,15 @@ def evaluate_cf(test_data, rating_generator, missing_generator):
     missing_generator.eval()
     rating_generator.eval()
     # todo: fill this function
+    # mask test data
+    print(test_data.size)
+    # generate augmented users & items
+    # make CF matrix
+    # compare predictions with masks
+    # calculate & return:
+    #   precision, recall, nDCG(?) MRR(?)
+    # precision = true positives / true positives and false positives
+    # recall = true positives / true positives and false negatives
     return 0
 
 
