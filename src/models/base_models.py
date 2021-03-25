@@ -8,8 +8,8 @@ class UserEncoder(nn.Module):
         super().__init__()
         self.embedding = nn.Embedding(input_dim, output_dim)
 
-    def forward(self, index_list):
-        embedded = self.embedding(index_list)
+    def forward(self, index_tensor):
+        embedded = self.embedding(index_tensor)
         return embedded
 
 
@@ -18,8 +18,8 @@ class ItemEncoder(nn.Module):
         super().__init__()
         self.embedding = nn.Embedding(input_dim, output_dim)
 
-    def forward(self, index_list):
-        embedded = self.embedding(index_list)
+    def forward(self, index_tensor):
+        embedded = self.embedding(index_tensor)
         return embedded
 
 
