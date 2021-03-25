@@ -75,7 +75,7 @@ class UserDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.numIDs
 
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if self.load_full:
             user_reviews_embedding = self.review_embeddings[idx]
             user_ratings = self.interactions[idx]
@@ -83,7 +83,7 @@ class UserDataset(torch.utils.data.Dataset):
             user_reviews_embedding = torch.from_numpy(self.review_table[idx]['reviewText'].astype(np.float32))
             user_ratings = torch.from_numpy(self.interact_table[idx].astype(np.float32))
         # conditional_vector = self.conditional_vectors[idx]
-        return user_reviews_embedding, user_ratings
+        return user_reviews_embedding, user_ratings, torch.tensor(idx)
 
 
 class ItemDataset(UserDataset):
@@ -107,7 +107,7 @@ class ItemDataset(UserDataset):
     def __len__(self) -> int:
         return self.numItems
 
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if self.load_full:
             item_ratings = self.interactions[:, idx].type(torch.float32)
         else:
@@ -116,7 +116,7 @@ class ItemDataset(UserDataset):
         mask = item_ratings > 0
         item_reviews_embedding = self.get_itemReviews(mask)
 
-        return item_reviews_embedding, item_ratings
+        return item_reviews_embedding, item_ratings, torch.tensor(idx)
 
 
 if __name__ == '__main__':

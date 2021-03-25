@@ -36,16 +36,16 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     embedding = UserEncoder(num_users, embedding_size).to(device)
                 else:
                     embedding = ItemEncoder(num_items, embedding_size).to(device)
+                review_embedding, rating_vector, index_item = batch
                 embedding.requires_grad_(True)
-                review_embedding, rating_vector = batch
                 rating_vector = rating_vector.to(device)
                 review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((rating_vector>0)*1).to(device)
+                index_item = index_item.to(device)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
-                index_list = # index_list (should be 1 long)
                 if not use_reviews:
                     review_embedding = None
-                conditional_vector = embedding(index_list) # user/item embedding
+                conditional_vector = embedding([index_item]) # user/item embedding
                 fake_rating_vector = rating_generator(noise_vector, conditional_vector, review_embedding)
 
                 fake_missing_vector = missing_generator(noise_vector, conditional_vector, review_embedding)
@@ -75,16 +75,16 @@ def train(rating_generator, missing_generator, rating_discriminator,
         for step in range(d_step):
             d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
-                review_embedding, real_rating_vector = batch
+                review_embedding, rating_vector, index_item = batch
                 real_rating_vector = real_rating_vector.to(device)
                 review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).to(device)
+                index_item = index_item.to(device)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
                                             dtype=torch.float32).to(device)
-                index_list = # index_list (should be 1 long)
                 if not use_reviews:
                     review_embedding = None
-                conditional_vector = embedding(index_list) # user/item embedding
+                conditional_vector = embedding([index_item]) # user/item embedding
                 fake_rating_vector = rating_generator(noise_vector, conditional_vector, review_embedding)
 
                 fake_missing_vector = missing_generator(noise_vector, conditional_vector, review_embedding)
