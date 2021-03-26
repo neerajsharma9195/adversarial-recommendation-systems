@@ -20,7 +20,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
           rating_d_optimizer, missing_d_optimizer,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size, embedding_size=128,
-          is_user=True, use_reviews=False, output_path="/mnt/nfs/scratch1/neerajsharma/model_params"):
+          is_user=True, use_reviews=False, output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
     rating_generator.train()
     missing_generator.train()
     rating_discriminator.train()
@@ -45,6 +45,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
                 conditional_vector = embedding(index_item.type(torch.long).to(device)) # user/item embedding
                 # conditional_vector = conditional_vector.to(device)
+                if not use_reviews:
+                    review_embedding = None
                 fake_rating_vector = rating_generator(noise_vector, conditional_vector, review_embedding)
 
                 fake_missing_vector = missing_generator(noise_vector, conditional_vector, review_embedding)
@@ -74,7 +76,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
         for step in range(d_step):
             d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
-                review_embedding, rating_vector, index_item = batch
+                review_embedding, real_rating_vector, index_item = batch
                 real_rating_vector = real_rating_vector.to(device)
                 review_embedding = review_embedding.squeeze(0).to(device)
                 real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).to(device)
@@ -82,6 +84,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
                                             dtype=torch.float32).to(device)
                 conditional_vector = embedding(index_item.type(torch.long).to(device))
+                if not use_reviews:
+                    review_embedding = None
                 fake_rating_vector = rating_generator(noise_vector, conditional_vector, review_embedding)
 
                 fake_missing_vector = missing_generator(noise_vector, conditional_vector, review_embedding)
@@ -161,12 +165,15 @@ def train(rating_generator, missing_generator, rating_discriminator,
             missing_generator.train()
 
 
-def evaluate_cf(test_data, rating_generator, missing_generator):
+def evaluate_cf(test_dataloader, rating_generator, missing_generator):
     missing_generator.eval()
     rating_generator.eval()
-    # todo: fill this function
     # mask test data
-    print('size = ', test_data.size)
+    # print(len(test_dataloader.dataset))
+    # for i, batch in enumerate(test_dataloader):
+    #     review_embedding, rating_vector, index_item = batch
+    #     print('rating vec = ', rating_vector)
+    #     print([(i, rating_vector[i]) for i in rating_vector if rating_vector[i] != 0])
     # generate augmented users & items
     # make CF matrix
     # compare predictions with masks
@@ -208,7 +215,7 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     wandb.watch(user_missing_generator)
     wandb.watch(user_rating_discriminator)
     wandb.watch(user_missing_discriminator)
-    g_step = 5
+    g_step = 2 #5
     d_step = 2
     num_epochs = 100
     user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)

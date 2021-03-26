@@ -1,6 +1,7 @@
 import surprise
 from sklearn.decomposition import TruncatedSVD
 import numpy as np
+import pandas as pd
 
 from surprise import KNNWithMeans
 from surprise import Dataset
@@ -8,33 +9,34 @@ from surprise import accuracy
 from surprise import Reader
 import os
 from surprise.model_selection import train_test_split as surprise_train_test_split
-import pandas as pd
+from src.preprocessing.dataloader import UserDataset
 
-header_list = ["userID", "itemID", "rating", "reviewUnixTime"]
+# header_list = ["userID", "itemID", "rating", "reviewUnixTime"]
 
-rating_file_path = os.path.join('/mnt/nfs/scratch1/neerajsharma/amazon_data/', 'ratings_Beauty.csv')
+# rating_file_path = os.path.join('/mnt/nfs/scratch1/neerajsharma/amazon_data/', 'ratings_Beauty.csv')
 
-ratings_df = pd.read_csv(rating_file_path, names=header_list)
+# ratings_df = pd.read_csv(rating_file_path, names=header_list)
 
-print("Total data ")
-print("Total no of ratings :", ratings_df.shape[0])
-print("Total No of Users   :", len(np.unique(ratings_df['userID'])))
-print("Total No of products  :", len(np.unique(ratings_df['itemID'])))
+# print("Total data ")
+# print("Total no of ratings :", ratings_df.shape[0])
+# print("Total No of Users   :", len(np.unique(ratings_df['userID'])))
+# print("Total No of products  :", len(np.unique(ratings_df['itemID'])))
 
-def collaborative_filter(augmented_matrix):
-    ratings_df.drop(['reviewUnixTime'], axis=1, inplace=True)
+def collaborative_filter(interaction_matrix):
+    # ratings_df.drop(['reviewUnixTime'], axis=1, inplace=True)
 
-    new_df = ratings_df.groupby("itemID").filter(lambda x: x['rating'].count() >= 50)
-    new_df.reset_index(inplace=True)
+    # new_df = ratings_df.groupby("itemID").filter(lambda x: x['rating'].count() >= 50)
+    # new_df.reset_index(inplace=True)
 
-    reader = Reader(rating_scale=(1, 5))
-    data = Dataset.load_from_df(new_df[['userID', 'itemID', 'rating']], reader)
-    # Use user_based true/false to switch between user-based or item-based collaborative filtering
+    # reader = Reader(rating_scale=(1, 5))
+    # data = Dataset.load_from_df(new_df[['userID', 'itemID', 'rating']], reader)
+    # # Use user_based true/false to switch between user-based or item-based collaborative filtering
+    # trainset, testset = surprise_train_test_split(data, test_size=0.3, random_state=10)
+
     algo = KNNWithMeans(k=5, sim_options={'name': 'pearson_baseline', 'user_based': False})
-    trainset, testset = surprise_train_test_split(data, test_size=0.3, random_state=10)
 
     # train model
-
+    
     algo.fit(trainset)
 
     # on test data:
@@ -84,3 +86,4 @@ def collaborative_filter(augmented_matrix):
 
     print(recommended)
     return recommended
+
