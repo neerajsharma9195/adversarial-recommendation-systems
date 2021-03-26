@@ -228,7 +228,7 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
           rating_g_optimizer=user_rating_g_optimizer, missing_g_optimizer=user_missing_g_optimizer,
           rating_d_optimizer=user_rating_d_optimizer, missing_d_optimizer=user_missing_d_optimizer,
           train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
-          epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True)
+          epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True, use_reviews=use_reviews)
 
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
@@ -274,4 +274,4 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
           rating_g_optimizer=item_rating_g_optimizer, missing_g_optimizer=item_missing_g_optimizer,
           rating_d_optimizer=item_rating_d_optimizer, missing_d_optimizer=item_missing_d_optimizer,
           train_dataloader=item_train_dataloader, test_dataloader=item_test_dataloader, epochs=num_epochs,
-          g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False)
+          g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False, use_reviews=use_reviews)

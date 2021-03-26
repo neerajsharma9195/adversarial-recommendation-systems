@@ -44,7 +44,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 index_item = index_item.to(device)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
                 if not use_reviews:
-                    review_embedding = None
+                    review_embedding = None # np.zeros(review_embedding.size())
+                else:
                 # embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
                 fake_rating_vector = rating_generator(noise_vector, rating_vector, review_embedding)
 
@@ -176,6 +177,7 @@ def evaluate_cf(test_data, rating_generator, missing_generator):
 def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
                   use_reviews=False):
+    print('use reviews = ', use_reviews)
     if use_reviews:
         user_rating_generator = Generator(input_size=noise_size, item_count=num_items,
                                           c_embedding_size=num_items,
@@ -216,7 +218,7 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
           rating_g_optimizer=user_rating_g_optimizer, missing_g_optimizer=user_missing_g_optimizer,
           rating_d_optimizer=user_rating_d_optimizer, missing_d_optimizer=user_missing_d_optimizer,
           train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
-          epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True)
+          epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items, noise_size=noise_size, is_user=True, use_reviews=use_reviews)
 
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
@@ -262,4 +264,4 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
           rating_g_optimizer=item_rating_g_optimizer, missing_g_optimizer=item_missing_g_optimizer,
           rating_d_optimizer=item_rating_d_optimizer, missing_d_optimizer=item_missing_d_optimizer,
           train_dataloader=item_train_dataloader, test_dataloader=item_test_dataloader, epochs=num_epochs,
-          g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False)
+          g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False, use_reviews=use_reviews)
