@@ -22,7 +22,7 @@ from src.preprocessing.dataloader import UserDataset
 # print("Total No of Users   :", len(np.unique(ratings_df['userID'])))
 # print("Total No of products  :", len(np.unique(ratings_df['itemID'])))
 
-def collaborative_filter(interaction_matrix):
+def collaborative_filter():
     # ratings_df.drop(['reviewUnixTime'], axis=1, inplace=True)
 
     # new_df = ratings_df.groupby("itemID").filter(lambda x: x['rating'].count() >= 50)

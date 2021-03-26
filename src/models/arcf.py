@@ -45,7 +45,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size), dtype=torch.float32).to(device)
                 if not use_reviews:
                     review_embedding = None # np.zeros(review_embedding.size())
-                else:
                 # embedding_representation = embedding(conditional_vector)[torch.argmax(conditional_vector, axis=0)]
                 fake_rating_vector = rating_generator(noise_vector, rating_vector, review_embedding)
 

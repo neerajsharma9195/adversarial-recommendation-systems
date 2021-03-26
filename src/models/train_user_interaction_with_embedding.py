@@ -31,10 +31,10 @@ user_embedding_dim = 128
 noise_size = 128
 
 
-# train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=val_loader,
-#               num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
-#               review_embedding_size=128, use_reviews=True)
-
 train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=val_loader,
               num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
-              review_embedding_size=128, use_reviews=False)
+              review_embedding_size=128, use_reviews=True)
+
+# train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=val_loader,
+#               num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
+#               review_embedding_size=128, use_reviews=False)
