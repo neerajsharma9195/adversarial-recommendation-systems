@@ -23,6 +23,21 @@ class ItemEncoder(nn.Module):
         return embedded
 
 
+class RatingDenseRepresentation(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        self.firstLayer = nn.Linear(input_dim, 2048)
+        self.secondLayer = nn.Linear(2048, 1024)
+        self.thirdLayer = nn.Linear(1024, output_dim)
+
+    def forward(self, rating_vector):
+        dense_representation = self.firstLayer(rating_vector)
+        dense_representation = nn.functional.relu(dense_representation)
+        dense_representation = self.secondLayer(dense_representation)
+        dense_representation = nn.functional.relu(dense_representation)
+        return self.thirdLayer(dense_representation)
+
+
 class Discriminator(nn.Module):
     def __init__(self, input_size, c_embedding_size, review_embedding_size, use_reviews=True):
         super(Discriminator, self).__init__()
