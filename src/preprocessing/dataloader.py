@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 import tables as tb
-from src.preprocessing.preprocessing import DATASET_DIR, HDF5_DATASET, DATASET_NAME
+from src.preprocessing.utils import DATASET_DIR, HDF5_DATASET, DATASET_NAME
 
 from typing import Union, List, Tuple
 
@@ -65,10 +65,15 @@ class UserDataset(torch.utils.data.Dataset):
         return self.review_embeddings
 
     def get_interactions(self, style='tensor') -> Union[torch.Tensor, np.ndarray]:
+        if self.interactions is None:
+            interactions = self.hdfarray_to_tensor(self.interact_table)
+        else:
+            interactions = self.interactions
+
         if style == 'tensor':
-            return self.interactions
+            return interactions
         elif style == 'numpy':
-            return self.interactions.numpy()
+            return interactions.numpy()
         else:
             raise NameError("style must be 'tensor' or 'numpy'!")
 

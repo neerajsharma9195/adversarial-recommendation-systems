@@ -1,45 +1,63 @@
 import os
-import numpy as np
-import pytables as tb
-from preprocessing import DATASET_DIR, HDF5_DATASET, DATASET_NAME
+import gzip
+import json
+import tables as tb
+import pandas as pd
 
-REVIEW_TABLE = 'Review'
-META_TABLE = 'Meta'
+DATASET_DIR = "/mnt/nfs/scratch1/neerajsharma/amazon_data/"
+META_PREFIX = "meta_"
+REVIEW_PREFIX = "review_"
+HDF5_DATASET = "dataset.h5"
+DATASET_NAME = {
+    'phone': 'Cell_Phones_and_Accessories.json.gz',
+    'beauty': 'All_Beauty.json.gz',                     # haven't downloaded yet
+    'food': 'Grocery_and_Gourmet_Food.json.gz'
+}
 
-class Reviews_Idx:
-    reviewerID = 0
-    summary = 1
-    reviewText = 2
+# Review Dataset Format
+class Reviews(tb.IsDescription):
+    reviewerID = tb.StringCol(itemsize=20)    
+    reviewText = tb.Float64Col(shape=(1, 128))
 
-def get_rating_vector(user_id):
-    # todo: Get Rating Vector for user
-    pass
-
-
-def get_missing_vector(user_id):
-    # todo: Get Missing Vector for user
-    pass
-
-
-def get_conditional_vector(user_id):
-    # todo: Get Conditional Vector for user
-    pass
-
-def get_review(dir=DATASET_DIR, data_name=HDF5_DATASET) -> np.ndarray:
-    h5f = tb.open_file(os.path.join(dir, data_name), 'r')
-    table = h5f.root[data_name]['Review']
-    for row in table.iterrows():
-        yield row['reviewText']
-
-def get_review_by_id(user_id: int, dir=DATASET_DIR, data_name=HDF5_DATASET) -> np.ndarray:
-    with tb.open_file(os.path.join(dir, data_name), 'r') as h5f:
-        table = h5f.root[data_name]['Review']
-        return table[user_id][Reviews_Idx.reviewText]
-
-def get_all_reviews_of_user(user_id):
-    # todo: Get all reviews for user
-    pass
+    # `summary` is ignored for now
+    # summary    = tb.Float64Col(shape=(1, 128))
 
 
-def get_noise_vector():
-    pass
+# Meta-data Dataset Format (is not used yet)
+class Metadata(tb.IsDescription):
+    # Temporary config
+    asin      = tb.StringCol(itemsize=20)
+    title     = tb.Float64Col(shape=(1, 128))
+    category  = tb.Float64Col(shape=(1, 128))
+    brand     = tb.Float64Col(shape=(1, 128))
+    also_buy  = tb.Float64Col(shape=(1, 128))
+    also_view = tb.Float64Col(shape=(1, 128))
+    price     = tb.Float64Col(shape=(1, 128))
+
+
+def parse(path: str):
+    g = gzip.open(path, 'rb')
+    for l in g:
+        yield json.loads(l)
+
+def getDF(path: str, num_entry='all') -> pd.DataFrame:
+    df = {}
+    if num_entry == 'all':
+        for i, d in enumerate(parse(path)):
+            df[i] = d
+    elif isinstance(num_entry, int):
+        for i, d in enumerate(parse(path)):
+            if i > num_entry - 1:
+                break
+            df[i] = d
+    else:
+        raise TypeError("'num_entry' can either be an int or 'all'")
+
+    return pd.DataFrame.from_dict(df, orient='index')
+
+def getAmazonData(data_name: str, num_entry='all') -> pd.DataFrame:
+    try:
+        path = os.path.join(DATASET_DIR, DATASET_NAME[data_name])
+        return getDF(path, num_entry)
+    except KeyError:
+        print(f"Dataset '{data_name}' is not supported!")
