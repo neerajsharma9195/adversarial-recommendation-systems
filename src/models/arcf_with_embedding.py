@@ -29,12 +29,12 @@ def train(rating_generator, missing_generator, rating_discriminator,
     best_performance = 0
     if is_user:
         embedding = UserEncoder(num_users, embedding_size).to(device)
-        rating_dense_representation = RatingDenseRepresentation(num_items, embedding_size)
-        missing_dense_representation = RatingDenseRepresentation(num_items, embedding_size)
+        rating_dense_representation = RatingDenseRepresentation(num_items, embedding_size).to(device)
+        missing_dense_representation = RatingDenseRepresentation(num_items, embedding_size).to(device)
     else:
         embedding = ItemEncoder(num_items, embedding_size).to(device)
-        rating_dense_representation = RatingDenseRepresentation(num_users, embedding_size)
-        missing_dense_representation = RatingDenseRepresentation(num_items, embedding_size)
+        rating_dense_representation = RatingDenseRepresentation(num_users, embedding_size).to(device)
+        missing_dense_representation = RatingDenseRepresentation(num_items, embedding_size).to(device)
     embedding.requires_grad_(True)
     rating_dense_representation.requires_grad_(True)
     missing_dense_representation.requires_grad_(True)
