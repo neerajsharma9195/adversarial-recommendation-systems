@@ -50,7 +50,8 @@ def save_review_dataset(data_name: str, dataset=None, agg_func=get_embedding,
 
     grouped_df = df.groupby('reviewerID')
 
-    file_mode = 'a' if os.path.isfile(os.path.join(dir, hdf5_name)) else 'w'
+    # file_mode = 'a' if os.path.isfile(os.path.join(dir, hdf5_name)) else 'w'
+    file_mode = 'a'
     with tb.open_file(os.path.join(dir, hdf5_name), file_mode) as h5f:
         # Get the HDF5 root group
         root = h5f.root
@@ -137,7 +138,7 @@ def get_masked_interactions(interactions: np.ndarray, min_user_rating, mask_rati
         # Randomly mask 50% of the ratings above the `min_user_rating` threshold
         masked_items = np.random.choice(
             valid_items,
-            size=int((num_valid_items[i] - min_user_rating) * mask_ratio),
+            size=np.maximum(1, int((num_valid_items[i] - min_user_rating) * mask_ratio)),
             replace=False
         )
         mask[masked_items] = False    
@@ -161,13 +162,16 @@ def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedd
         assert 'summary' in dataset.columns
         df = dataset
     elif isinstance(data_name, str):
+        print("Data Importing now...")
         df = getAmazonData(data_name)
     else:
         raise TypeError("'dataset' is neither a DataFrame nor a str!")
 
+    print("Data Triming now...")
     df = review_data_triming(df, max_length, min_item_reviews, min_user_reviews)
 
     # Generate user-item interactions
+    print("Generating interactions and masks...")
     interactions = df[['reviewerID', 'asin', 'overall']].groupby(['reviewerID', 'asin'])['overall']\
                                                         .mean().unstack().reset_index() \
                                                         .fillna(0).set_index('reviewerID')
@@ -191,32 +195,30 @@ def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedd
 
         # Create table
         tablename = "masked_Review"
-        table = h5f.create_table(
-            f"/{data_name}", tablename, Reviews, "{data_name}: "+tablename
-        )
+        # table = h5f.create_table(
+        #     f"/{data_name}", tablename, Reviews, "{data_name}: "+tablename
+        # )
 
-        # Get the record object associated with the table:
-        review = table.row
+        # Copy the unmodified embeddings
+        h5f.copy_node(where='/food/Review', newparent='/food', newname=tablename)
+        cur_table = cur_group[tablename]
 
+        print("Saving Dataset now...")
         for i, d in enumerate(grouped_df):
-            idx, val = d
-            review['reviewerID'] = idx
-            for col in categories:
-                r = list(filter(lambda x: len(x) > 0, val[col]))
-                if i in uids:
-                    try:
-                        review[col] = agg_func([r[j] for j in masks[i]]).cpu().detach().numpy()
-                    except IndexError:
-                        review[col] = agg_func(r).cpu().detach().numpy()
-                        uids = np.delete(uids, np.where(uids == i))
-                else:
-                    review[col] = agg_func(r).cpu().detach().numpy()
-        
-            # This injects the Record values
-            review.append()
+            if i % 1000 == 0:
+                print(f"current uid: {i}") 
             
-        # Flush the table buffers
-        table.flush()
+            if i in uids:
+                idx, val = d
+                for col in categories:
+                    r = list(filter(lambda x: len(x) > 0, val[col]))
+                    try:
+                        cur_table[i] = (
+                            agg_func([r[j] for j in masks[i]]).cpu().detach().numpy(),
+                            cur_table[i]['reviewerID']
+                        )
+                    except IndexError:
+                        uids = np.delete(uids, np.where(uids == i))
 
         # Store masked userIDs and interactions
         filters = tb.Filters(complib='zlib', complevel=5)
