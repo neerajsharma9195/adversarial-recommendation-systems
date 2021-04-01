@@ -4,23 +4,27 @@ import numpy as np
 import torch
 import nltk
 
+# Downloads
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+model = AutoModel.from_pretrained("prajjwal1/bert-tiny")
+
 # Settings
 sentence_embedding_type = "CLS"  # "avg"
 review_embedding_type = "avg"  # other?
+useGPU = True if torch.cuda.is_available() else False
     
+if useGPU:
+    model.to("cuda")
 
 def process(first_sentence, second_sentence):
     """Pre-process sentence(s) for BERT. Returns:
         - tokenized text (with [CLS] and [SEP] tokens)
         - segment sentence ids ([0s & 1s])
         - indexed tokens """
-    # Downloads
-    try:
-        nltk.data.find('tokenizers/punkt')
-    except LookupError:
-        nltk.download('punkt')
-
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     tokenized_first = ["[CLS]"] + tokenizer.tokenize(first_sentence) + ["[SEP]"]
     if second_sentence:
         tokenized_second = tokenizer.tokenize(second_sentence) + ["[SEP]"]
@@ -35,17 +39,13 @@ def process(first_sentence, second_sentence):
 
 def get_sentence_embedding(sentence_pair):
     """returns sentence (pair) embedding of size [1, 768]"""
-    model = AutoModel.from_pretrained("prajjwal1/bert-tiny")
-    model.eval()
-
     first_sentence, second_sentence = sentence_pair
     tokenized_review, segments_ids, indexed_tokens = process(
         first_sentence, second_sentence
     )
     tokens_tensor = torch.tensor([indexed_tokens])
     segments_tensors = torch.tensor([segments_ids])
-    if torch.cuda.is_available():
-        model.to("cuda")
+    if useGPU:
         tokens_tensor = tokens_tensor.to("cuda")
         segments_tensors = segments_tensors.to("cuda")
 
