@@ -1,6 +1,7 @@
 import os
 import gzip
 import json
+import torch
 import tables as tb
 import pandas as pd
 
@@ -61,3 +62,6 @@ def getAmazonData(data_name: str, num_entry='all') -> pd.DataFrame:
         return getDF(path, num_entry)
     except KeyError:
         print(f"Dataset '{data_name}' is not supported!")
+
+def get_item_mask(og_interactions: torch.Tensor, masked_interactions: torch.Tensor) -> torch.Tensor:
+    return torch.logical_xor(og_interactions, masked_interactions)

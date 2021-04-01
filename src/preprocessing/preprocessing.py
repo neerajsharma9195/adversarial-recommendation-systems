@@ -155,7 +155,7 @@ def get_masked_interactions(interactions: np.ndarray, min_user_rating, mask_rati
 def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedding,
                                dir=DATASET_DIR, hdf5_name=HDF5_DATASET, categories=['reviewText'],
                                min_item_reviews=100, min_user_reviews=3, max_length=256,
-                               min_user_rating=5, mask_ratio=0.5) -> None:
+                               min_user_rating=4, mask_ratio=0.75) -> None:
     if dataset is not None:
         assert 'asin' in dataset.columns
         assert 'reviewerID' in dataset.columns
@@ -190,17 +190,16 @@ def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedd
         if data_name not in str(h5f.list_nodes('/')):
             group = h5f.create_group(root, data_name)
 
-        # Now, create and fill the tables in Particles group
-        cur_group = root[data_name]
-
-        # Create table
-        tablename = "masked_Review"
-        # table = h5f.create_table(
-        #     f"/{data_name}", tablename, Reviews, "{data_name}: "+tablename
-        # )
+        for name in ["masked_Review", "masked_Interactions", "uid_mask"]:
+            if name in str(h5f.list_nodes(f'/{data_name}')):
+                print(f"Deleting group /{data_name}/{name}")
+                h5f.remove_node(f'/{data_name}/{name}')
 
         # Copy the unmodified embeddings
-        h5f.copy_node(where='/food/Review', newparent='/food', newname=tablename)
+        cur_group = root[data_name]
+        tablename = "masked_Review"
+
+        h5f.copy_node(where=f'/{data_name}/Review', newparent=f'/{data_name}', newname=tablename)
         cur_table = cur_group[tablename]
 
         print("Saving Dataset now...")
@@ -242,4 +241,7 @@ if __name__ == '__main__':
     df = getAmazonData('food', 'all')
     # save_review_dataset(data_name='food', dataset=df, agg_func=get_embedding)
     # save_user_item_interaction(data_name='food', dataset=df)
-    save_masked_review_dataset(data_name='food', dataset=df, agg_func=get_embedding)
+    save_masked_review_dataset(
+        data_name='food', dataset=df, agg_func=get_embedding, 
+        min_user_rating=3, mask_ratio=0.8
+    )
