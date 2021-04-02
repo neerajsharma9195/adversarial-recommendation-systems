@@ -20,21 +20,31 @@ useGPU = True if torch.cuda.is_available() else False
 if useGPU:
     model.to("cuda")
 
-def process(sentence):
+def process(first_sentence, second_sentence):
     """Pre-process sentence(s) for BERT. Returns:
         - tokenized text (with [CLS] and [SEP] tokens)
         - segment sentence ids ([0s & 1s])
         - indexed tokens """
-    tokenized_text = ["[CLS]"] + tokenizer.tokenize(sentence) + ["[SEP]"]
+    tokenized_first = ["[CLS]"] + tokenizer.tokenize(first_sentence) + ["[SEP]"]
+    if second_sentence:
+        tokenized_second = tokenizer.tokenize(second_sentence) + ["[SEP]"]
+    else:
+        tokenized_second = []
+    tokenized_text = tokenized_first + tokenized_second
     tokenized_text = tokenized_text[:512]
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
-    segments_ids = [0 for i in range(len(tokenized_text))]
+    segments_ids = [0 for i in range(len(tokenized_first))]
+    segments_ids += [1 for i in range(len(tokenized_second))]
+    segments_ids = segments_ids[:512]
     return tokenized_text, segments_ids, indexed_tokens
 
 
-def get_sentence_embedding(sentence):
+def get_sentence_embedding(sentence_pair):
     """returns sentence (pair) embedding of size [1, 128]"""
-    tokenized_review, segments_ids, indexed_tokens = process(sentence)
+    first_sentence, second_sentence = sentence_pair
+    tokenized_review, segments_ids, indexed_tokens = process(
+        first_sentence, second_sentence
+    )
     tokens_tensor = torch.tensor([indexed_tokens])
     segments_tensors = torch.tensor([segments_ids])
     if useGPU:
@@ -54,10 +64,31 @@ def get_sentence_embedding(sentence):
         return None
 
 
+def create_sentence_pairs(review):
+    """ returns array of sentence pair tuples"""
+    pairs = []
+    review_sentences = nltk_tokenize.sent_tokenize(review)
+    first_sentence, last_sentence = review_sentences[0], review_sentences[-1]
+
+    # first sentence alone
+    pairs.append((first_sentence, ""))
+
+    # all pairs of sentences
+    for line in review_sentences[1:]:
+        second_sentence = line
+        pairs.append((first_sentence, second_sentence))
+        first_sentence = line
+
+    # last sentence alone
+    if len(review_sentences) > 1:
+        pairs.append((last_sentence, ""))
+    return pairs
+
+
 def get_review_embedding(review):
     """returns review embedding of size [1, 128]"""
-    review_sentences = nltk_tokenize.sent_tokenize(review)
-    sentence_embeddings = map(get_sentence_embedding, review_sentences)
+    sentence_pairs = create_sentence_pairs(review)
+    sentence_embeddings = map(get_sentence_embedding, sentence_pairs)  # [pairs, 1, 128]
     if review_embedding_type == "avg":
         # avg over all pairs [pairs, 1, 128] => [1, 128]
         mean = torch.mean(torch.stack(list(sentence_embeddings)), axis=0)
