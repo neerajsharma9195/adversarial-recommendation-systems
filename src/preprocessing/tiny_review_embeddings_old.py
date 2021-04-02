@@ -31,12 +31,9 @@ def process(first_sentence, second_sentence):
     else:
         tokenized_second = []
     tokenized_text = tokenized_first + tokenized_second
-    tokenized_text = tokenized_text[:512]
-    print(tokenized_text)
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
     segments_ids = [0 for i in range(len(tokenized_first))]
     segments_ids += [1 for i in range(len(tokenized_second))]
-    segments_ids = segments_ids[:512]
     return tokenized_text, segments_ids, indexed_tokens
 
 
@@ -117,9 +114,6 @@ if __name__ == "__main__":
 
     example_review3 = "Five Stars."
 
-    with open("src/preprocessing/long_example.txt") as f:
-        example_review4 = f.read()
-
-    example_reviews = [example_review4]
+    example_reviews = [example_review, example_review2, example_review3]
 
     get_embedding(example_reviews)
