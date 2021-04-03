@@ -125,20 +125,23 @@ def save_user_item_interaction(data_name: str, dataset=None,
         filters = tb.Filters(complib='zlib', complevel=5)
         h5f.create_carray(cur_group, 'Interactions', obj=df.to_numpy(), filters=filters)
 
-def get_masked_interactions(interactions: np.ndarray, min_user_rating, mask_ratio) -> (np.ndarray, np.ndarray, np.ndarray):
+def get_masked_interactions(interactions: np.ndarray, min_user_rating, reserved_rating, mask_ratio) -> (np.ndarray, np.ndarray, np.ndarray):
+    if min_user_rating - reserved_rating <= 1:
+        raise ValueError("At least two ratings need to be reserved")
+    
     num_valid_items = np.count_nonzero(interactions, axis=1)
-    uid_mask = num_valid_items > min_user_rating
+    uid_mask = num_valid_items >= min_user_rating
     uids = np.arange(interactions.shape[0])[uid_mask]
     masks = []
 
     for i in uids:
         mask = np.ones(num_valid_items[i], dtype=bool)
-        valid_items = np.arange(num_valid_items[i])  
+        valid_items = np.arange(num_valid_items[i])
 
         # Randomly mask 50% of the ratings above the `min_user_rating` threshold
         masked_items = np.random.choice(
-            valid_items,
-            size=np.maximum(1, int((num_valid_items[i] - min_user_rating) * mask_ratio)),
+            valid_items[reserved_rating:],
+            size=np.maximum(1, int((num_valid_items[i] - reserved_rating) * mask_ratio)),
             replace=False
         )
         mask[masked_items] = False    
@@ -153,9 +156,9 @@ def get_masked_interactions(interactions: np.ndarray, min_user_rating, mask_rati
     return interactions, uids, masks
 
 def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedding,
-                               dir=DATASET_DIR, hdf5_name=HDF5_DATASET, categories=['reviewText'],
-                               min_item_reviews=100, min_user_reviews=3, max_length=256,
-                               min_user_rating=4, mask_ratio=0.75) -> None:
+                               dir=DATASET_DIR, hdf5_name=HDF5_DATASET, categories=['reviewText'], prefix='p_mask_',
+                               min_item_reviews=100, min_user_reviews=3, reserved_rating=1, max_length=256,
+                               min_user_rating=5, mask_ratio=0.75) -> None:
     if dataset is not None:
         assert 'asin' in dataset.columns
         assert 'reviewerID' in dataset.columns
@@ -176,7 +179,7 @@ def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedd
                                                         .mean().unstack().reset_index() \
                                                         .fillna(0).set_index('reviewerID')
     interactions = interactions.to_numpy()
-    interactions, uids, masks = get_masked_interactions(interactions, min_user_rating, mask_ratio)
+    interactions, uids, masks = get_masked_interactions(interactions, min_user_rating, reserved_rating, mask_ratio)
     
     # Generate review embeddings
     grouped_df = df.groupby('reviewerID')
@@ -190,17 +193,24 @@ def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedd
         if data_name not in str(h5f.list_nodes('/')):
             group = h5f.create_group(root, data_name)
 
-        for name in ["masked_Review", "masked_Interactions", "uid_mask"]:
+        for name in [prefix+"Review", prefix+"Interactions", prefix+"uid"]:
             if name in str(h5f.list_nodes(f'/{data_name}')):
                 print(f"Deleting group /{data_name}/{name}")
                 h5f.remove_node(f'/{data_name}/{name}')
 
         # Copy the unmodified embeddings
         cur_group = root[data_name]
-        tablename = "masked_Review"
+        tablename = prefix+"Review"
 
         h5f.copy_node(where=f'/{data_name}/Review', newparent=f'/{data_name}', newname=tablename)
         cur_table = cur_group[tablename]
+
+        og_interactions_table = cur_group['Interactions']
+        og_interactions = np.empty(shape=og_interactions_table.shape, dtype=og_interactions_table.dtype)
+        og_interactions[:] = og_interactions_table[:]
+
+        print(f"interactions: {interactions.shape}")
+        print(f"og_interactions: {og_interactions.shape}")
 
         print("Saving Dataset now...")
         for i, d in enumerate(grouped_df):
@@ -218,11 +228,12 @@ def save_masked_review_dataset(data_name: str, dataset=None, agg_func=get_embedd
                         )
                     except IndexError:
                         uids = np.delete(uids, np.where(uids == i))
+                        interactions[i, :] = og_interactions[i, :]
 
         # Store masked userIDs and interactions
         filters = tb.Filters(complib='zlib', complevel=5)
-        h5f.create_carray(cur_group, 'masked_Interactions', obj=interactions, filters=filters)
-        h5f.create_carray(cur_group, 'uid_mask', obj=uids, filters=filters)
+        h5f.create_carray(cur_group, prefix+'Interactions', obj=interactions, filters=filters)
+        h5f.create_carray(cur_group, prefix+'uid', obj=uids, filters=filters)
 
     
 def save_meta_dataset(data_name: str, dataset=None, agg_func=lambda x: x, save_path="./") -> None:
@@ -241,7 +252,11 @@ if __name__ == '__main__':
     df = getAmazonData('food', 'all')
     # save_review_dataset(data_name='food', dataset=df, agg_func=get_embedding)
     # save_user_item_interaction(data_name='food', dataset=df)
+    # save_masked_review_dataset(
+    #     data_name='food', dataset=df, agg_func=get_embedding, prefix='f_mask_',
+    #     min_user_reviews=3, reserved_rating=1, mask_ratio=1.0
+    # )
     save_masked_review_dataset(
-        data_name='food', dataset=df, agg_func=get_embedding, 
-        min_user_rating=3, mask_ratio=0.8
+        data_name='food', dataset=df, agg_func=get_embedding, prefix='p_mask_',
+        min_user_reviews=3, reserved_rating=1, mask_ratio=0.5
     )

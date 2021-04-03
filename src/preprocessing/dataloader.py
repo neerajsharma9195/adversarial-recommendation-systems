@@ -13,7 +13,7 @@ class UserDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def hdfarray_to_numpy(hdfarray: tb.CArray):
-        array = np.array(shape=hdfarray.shape, dtype=hdfarray.dtype)
+        array = np.empty(shape=hdfarray.shape, dtype=hdfarray.dtype)
         array[:] = hdfarray[:]
         return array
 
@@ -21,17 +21,22 @@ class UserDataset(torch.utils.data.Dataset):
     def hdfarray_to_tensor(hdfarray: tb.CArray):
         return torch.from_numpy(hdfarray[:])
 
-    def __init__(self, data_name: str, path=PATH, load_full=False, masked=False):
+    def __init__(self, data_name: str, path=PATH, load_full=False, masked='partial'):
         self.load_full = load_full
         self.h5f = tb.open_file(path, 'r')
 
-        self.masked_uid_table = self.h5f.root[data_name]['uid_mask']
-        if masked:
-            self.review_table = self.h5f.root[data_name]['masked_Review']
-            self.interact_table = self.h5f.root[data_name]['masked_Interactions']
-        else:
-            self.review_table = self.h5f.root[data_name]['Review']
-            self.interact_table = self.h5f.root[data_name]['Interactions']        
+        uid_name = 'p_mask_uid'
+        if masked == 'partial':
+            prefix = 'p_mask_'
+        elif masked == 'full':
+            prefix = 'f_mask_' 
+        elif masked == 'no':
+            prefix = ''
+            
+        review_name, interact_name = prefix+'Review', prefix+'Interactions'
+        self.masked_uid_table = self.h5f.root[data_name][uid_name]
+        self.review_table = self.h5f.root[data_name][review_name]
+        self.interact_table = self.h5f.root[data_name][interact_name]
 
         self.numIDs, self.numItems = self.interact_table.shape
         self.interactions = None
@@ -151,12 +156,14 @@ if __name__ == '__main__':
     Example: Load data from the original and the masked dataset
     """
     # Load the original dataset
-    user_dataset = UserDataset(data_name='food', load_full=True, masked=False)
+    user_dataset = UserDataset(data_name='food', load_full=True, masked='no')
     # item_dataset = ItemDataset(data_name='food', load_full=True, masked=False)
 
     # Load the masked dataset
-    masked_user_dataset = UserDataset(data_name='food', load_full=True, masked=True)
-    # masked_item_dataset = ItemDataset(data_name='food', load_full=True, masked=True)
+    masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='full')
+    
+    # or load partially masked dataset
+    # masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='partial')
 
     # Get the indices of users who are masked
     masked_uids = user_dataset.get_masked_uids(style='tensor')
@@ -185,11 +192,12 @@ if __name__ == '__main__':
     """
     from torch.utils.data import DataLoader
 
-    item_dataset = ItemDataset(data_name='food', load_full=True, masked=False)
-    user_dataset = UserDataset(data_name='food', load_full=True, masked=False)
+    fully_masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='full')
+    # partial_masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='partial')
+    # unmasked_user_dataset = UserDataset(data_name='food', load_full=True, masked='no')
 
-    length = int(len(item_dataset) * 0.5)
-    train_set, val_set = torch.utils.data.random_split(item_dataset, [length, len(item_dataset) - length])
+    length = int(len(fully_masked_user_dataset) * 0.5)
+    train_set, val_set = torch.utils.data.random_split(fully_masked_user_dataset, [length, len(fully_masked_user_dataset) - length])
     loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=0)
     for i, batch in enumerate(loader):
         if i < 1:
