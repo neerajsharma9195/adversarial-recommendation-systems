@@ -119,3 +119,23 @@ def batch_patk(queue, rows, interactions, model, k=5):
         true_pids = set(actuals)
         if true_pids:
             queue.put(len(top_k & true_pids) / float(k))
+
+
+def count_elements(predicted_rows, ground_truth_rows):
+    '''returns true positives, false positive, and false negatives'''
+    true_P, false_P, false_N = 0, 0, 0
+    for row in rows:
+        row = int(row)
+        users = users_init.fill_(row)
+
+        preds = model.predict(users, items)
+        actuals = get_row_indices(row, interactions)
+
+        if len(actuals) == 0:
+            continue
+
+        top_k = np.argpartition(-np.squeeze(preds.data.numpy()), k)
+        top_k = set(top_k[:k])
+        true_pids = set(actuals)
+        if true_pids:
+            queue.put(len(top_k & true_pids) / float(k))
