@@ -85,7 +85,7 @@ class UserDataset(torch.utils.data.Dataset):
             interactions = self.interactions
 
         if style == 'tensor':
-            return interactions
+            return interactions.type(torch.float32)
         elif style == 'numpy':
             return interactions.numpy()
         else:
@@ -109,8 +109,8 @@ class UserDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if self.load_full:
-            user_reviews_embedding = self.review_embeddings[idx]
-            user_ratings = self.interactions[idx]
+            user_reviews_embedding = self.review_embeddings[idx].type(torch.float32)
+            user_ratings = self.interactions[idx].type(torch.float32)
         else:
             user_reviews_embedding = torch.from_numpy(self.review_table[idx]['reviewText'].astype(np.float32))
             user_ratings = torch.from_numpy(self.interact_table[idx].astype(np.float32))
