@@ -8,7 +8,8 @@ import torch
 import wandb
 
 # 1. Start a new run
-wandb.init(project="adversarial-recommendation-with-embedding")
+# todo: change name from small experiments to complete experiments
+wandb.init(project="adversarial-recommendation-with-embedding-small-experiments")
 
 # 2. Save model inputs and hyperparameters
 config = wandb.config
@@ -162,6 +163,12 @@ def train(rating_generator, missing_generator, rating_discriminator,
                    os.path.join(output_path, "{}_rating_discriminator_epoch_{}.pt".format(path_name, epoch)))
         torch.save(missing_discriminator.state_dict(),
                    os.path.join(output_path, "{}_missing_discriminator_epoch_{}.pt".format(path_name, epoch)))
+        torch.save(embedding.state_dict(),
+                   os.path.join(output_path, "{}_embedding_epoch_{}.pt".format(path_name, epoch)))
+        torch.save(rating_dense_representation.state_dict(),
+                   os.path.join(output_path, "{}_rating_dense_representation_epoch_{}.pt".format(path_name, epoch)))
+        torch.save(missing_dense_representation.state_dict(),
+                   os.path.join(output_path, "{}_missing_dense_representation_epoch_{}.pt".format(path_name, epoch)))
 
         if epoch % 20 == 0:
             performance = evaluate_cf(test_dataloader, rating_generator, missing_generator)
@@ -179,6 +186,12 @@ def train(rating_generator, missing_generator, rating_discriminator,
                            os.path.join(output_path, "{}_rating_discriminator_best.pt".format(path_name)))
                 torch.save(missing_discriminator.state_dict(),
                            os.path.join(output_path, "{}_missing_discriminator_best.pt".format(path_name)))
+                torch.save(embedding.state_dict(),
+                           os.path.join(output_path, "{}_embedding_best.pt".format(path_name, epoch)))
+                torch.save(rating_dense_representation.state_dict(),
+                           os.path.join(output_path, "{}_rating_dense_representation_best.pt".format(path_name, epoch)))
+                torch.save(missing_dense_representation.state_dict(),
+                           os.path.join(output_path, "{}_missing_dense_representation_best.pt".format(path_name, epoch)))
             rating_generator.train()  # back to training mode
             missing_generator.train()
 
@@ -205,7 +218,7 @@ def evaluate_cf(test_dataloader, rating_generator, missing_generator):
 
 def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
-                  use_reviews=False):
+                  use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results'):
     if use_reviews:
         user_rating_generator = Generator(input_size=noise_size, item_count=num_items,
                                           c_embedding_size=user_embedding_dim,
@@ -250,14 +263,15 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
     user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
     user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
-
+    # todo: currently running experiments for a small dataset
     train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
           rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,
           rating_g_optimizer=user_rating_g_optimizer, missing_g_optimizer=user_missing_g_optimizer,
           rating_d_optimizer=user_rating_d_optimizer, missing_d_optimizer=user_missing_d_optimizer,
           train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
           epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items,
-          noise_size=noise_size, is_user=True, use_reviews=use_reviews)
+          noise_size=noise_size, is_user=True, use_reviews=use_reviews,
+          output_path=output_path)
 
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
