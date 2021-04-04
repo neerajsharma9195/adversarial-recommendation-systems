@@ -1,0 +1,22 @@
+{
+    "os": "Linux-5.8.0-44-generic-x86_64-with-glibc2.10",
+    "python": "3.8.0",
+    "heartbeatAt": "2021-03-24T05:17:52.388127",
+    "startedAt": "2021-03-24T05:17:51.445626",
+    "docker": null,
+    "cpu_count": 4,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "src/models/arcf.py",
+    "codePath": "src/models/arcf.py",
+    "git": {
+        "remote": "https://github.com/neerajsharma9195/adversarial-recommendation-systems.git",
+        "commit": "47f70c075a1e3b8a6cf117fe195f6471cbdf39b3"
+    },
+    "email": "liza.bialik@gmail.com",
+    "root": "/home/liza/Documents/projects/school/696DS/adversarial-recommendation-systems",
+    "host": "liza-XPS",
+    "username": "liza",
+    "executable": "/home/liza/miniconda3/envs/696DS/bin/python"
+}

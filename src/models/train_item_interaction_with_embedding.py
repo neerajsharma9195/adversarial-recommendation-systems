@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 import torch
 from src.preprocessing.dataloader import ItemDataset
-from src.models.arcf import train_item_ar
+from src.models.arcf_with_embedding import train_item_ar
 import random
 
 manualSeed = 42

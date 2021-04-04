@@ -6,43 +6,36 @@ import torch
 class UserEncoder(nn.Module):
     def __init__(self, input_dim, output_dim, dropout=0.1):
         super().__init__()
+        self.embedding = nn.Embedding(input_dim, output_dim)
 
-        self.embedding = nn.Embedding(input_dim, 128)
-
-        self.first_layer = nn.Linear(128, 256)
-
-        self.output_layer = nn.Linear(256, output_dim)
-
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, user_one_hot_vector):
-        # src = [src len, batch size]
-        embedded = self.embedding(user_one_hot_vector)
-        first_output = nn.functional.relu(self.first_layer(embedded))
-
-        final_output = self.dropout(nn.functional.relu(self.output_layer(first_output)))
-        return final_output # shape=(input_dim, output_dim)
+    def forward(self, index_tensor):
+        embedded = self.embedding(index_tensor)
+        return embedded
 
 
 class ItemEncoder(nn.Module):
     def __init__(self, input_dim, output_dim, dropout=0.1):
         super().__init__()
+        self.embedding = nn.Embedding(input_dim, output_dim)
 
-        self.embedding = nn.Embedding(input_dim, 128)
+    def forward(self, index_tensor):
+        embedded = self.embedding(index_tensor)
+        return embedded
 
-        self.first_layer = nn.Linear(128, 256)
 
-        self.output_layer = nn.Linear(256, output_dim)
+class RatingDenseRepresentation(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        self.firstLayer = nn.Linear(input_dim, 2048)
+        self.secondLayer = nn.Linear(2048, 1024)
+        self.thirdLayer = nn.Linear(1024, output_dim)
 
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, item_one_hot_vector):
-        # src = [src len, batch size]
-        embedded = self.embedding(item_one_hot_vector)
-        first_output = nn.functional.relu(self.first_layer(embedded))
-
-        final_output = self.dropout(nn.functional.relu(self.output_layer(first_output)))
-        return final_output
+    def forward(self, rating_vector):
+        dense_representation = self.firstLayer(rating_vector)
+        dense_representation = nn.functional.relu(dense_representation)
+        dense_representation = self.secondLayer(dense_representation)
+        dense_representation = nn.functional.relu(dense_representation)
+        return self.thirdLayer(dense_representation)
 
 
 class Discriminator(nn.Module):
