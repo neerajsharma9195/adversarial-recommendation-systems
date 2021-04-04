@@ -21,9 +21,13 @@ class UserDataset(torch.utils.data.Dataset):
     def hdfarray_to_tensor(hdfarray: tb.CArray):
         return torch.from_numpy(hdfarray[:])
 
-    def __init__(self, data_name: str, path=PATH, load_full=False, masked='partial'):
+    def __init__(self, data_name: str, path=PATH, load_full=False, subset_only=True, masked='partial'):
+        self.subset_only = subset_only
         self.load_full = load_full
         self.h5f = tb.open_file(path, 'r')
+
+        if load_full == False and subset_only == True:
+            raise ValueError("`subset_only` is only supported when `load_full=True`!")
 
         uid_name = 'p_mask_uid'
         if masked == 'partial':
@@ -50,6 +54,13 @@ class UserDataset(torch.utils.data.Dataset):
             self.reviewerIDs = self.get_reviewerIDs()
             self.review_embeddings = self.get_userReviews()
             self.masked_uids = self.get_masked_uids()
+
+            if self.subset_only:
+                self.numIDs = self.masked_uids.size()[0]
+                self.interactions = self.interactions[self.masked_uids]
+                self.reviewerIDs = [self.reviewerIDs[i] for i in self.masked_uids]
+                self.review_embeddings = self.review_embeddings[self.masked_uids]
+
             self.h5f.close()
 
     def get_reviewerID(self, idx) -> str:
@@ -146,6 +157,11 @@ class ItemDataset(UserDataset):
 
         mask = item_ratings > 0
         item_reviews_embedding = self.get_itemReviews(mask)
+
+        if torch.all(torch.isnan(item_reviews_embedding)):
+            item_reviews_embedding = torch.zeros(item_reviews_embedding.size())
+            print(f"Item #{idx} has no associated review embeddings available!")
+            print("Return a zero vector with the same dimension instead...")
 
         return item_reviews_embedding, item_ratings, torch.tensor(idx)
 
