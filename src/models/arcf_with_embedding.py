@@ -90,7 +90,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 review_embedding, real_rating_vector, index_item = batch
                 real_rating_vector = real_rating_vector.to(device)
                 review_embedding = review_embedding.to(device)
-                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).to(device)
+                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).type(torch.float32).to(device)
                 index_item = index_item.to(device)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
                                             dtype=torch.float32).to(device)
