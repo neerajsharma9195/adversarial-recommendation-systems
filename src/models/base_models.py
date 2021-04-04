@@ -89,6 +89,9 @@ class Generator(nn.Module):
 
     def forward(self, noise_vector, embedding_vector, review_embedding):
         if self.use_reviews:
+            print("noise vector shape {}".format(noise_vector.shape))
+            print("embedding vector shape {}".format(embedding_vector.shape))
+            print("review embedding shape {}".format(review_embedding.shape))
             G_input = torch.cat((noise_vector, embedding_vector, review_embedding), dim=1)
         else:
             G_input = torch.cat((noise_vector, embedding_vector), dim=1)
