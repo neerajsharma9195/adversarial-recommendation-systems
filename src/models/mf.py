@@ -26,8 +26,24 @@ def matrix_factorization(R, P, Q, K, steps=50000, alpha=0.0002, beta=0.02):
         if np.allclose(eR*mask, R, rtol=.1):
             print('All non-zero elements were close enough after {} steps. Returned.'.format(step))
             return P, Q.T
-            
+
     return P, Q.T
+
+
+def run_MF(R):
+    R = numpy.array(R)
+    N = len(R)
+    M = len(R[0])
+    K = 2
+
+    P = numpy.random.rand(N,K)
+    Q = numpy.random.rand(M,K)
+
+    nP, nQ = matrix_factorization(R, P, Q, K)
+    nR = numpy.dot(nP, nQ.T)
+    nR = np.round(nR)
+    return nR
+
 
 if __name__ == "__main__":
     R = [
