@@ -1,12 +1,10 @@
 import numpy
 import numpy as np
 import pandas as pd
-# import progressbar as pb
 
 def matrix_factorization(R, P, Q, K, steps=50000, alpha=0.0002, beta=0.02):
     mask = R > 0
     Q = Q.T
-    # for step in pb.progressbar(range(steps)):
     for step in range(steps):
         for i in range(len(R)):
             for j in range(len(R[i])):
@@ -27,8 +25,8 @@ def matrix_factorization(R, P, Q, K, steps=50000, alpha=0.0002, beta=0.02):
             break
         if np.allclose(eR*mask, R, rtol=.1):
             print('All non-zero elements were close enough after {} steps. Returned.'.format(step))
-            # print(step)
-            break
+            return P, Q.T
+            
     return P, Q.T
 
 if __name__ == "__main__":
