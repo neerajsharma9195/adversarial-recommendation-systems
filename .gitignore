@@ -134,6 +134,7 @@ dmypy.json
 # misc.
 .history
 wandb
+data
 
 # data
 ./src/data
