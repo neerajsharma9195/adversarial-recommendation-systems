@@ -54,16 +54,14 @@ def evalMF(masked_R, unmasked_R, ks):
     MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R)
     popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R)
     random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R)
-    MAPs = [MFprecisions, popular_precisions, random_precisions]
-    MARs = [MFrecalls, popular_recalls, random_recalls]
     models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
+    MAPs = [random_precisions, popular_precisions, MFprecisions]
+    MARs = [random_recalls, popular_recalls, MFrecalls]
+    errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
     plot_MAP(MAPs, models, ks)
     plot_MAR(MARs, models, ks)
     error_labels = ['MAE', 'RMSE']
-    errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
-    tab_data = []
-    for i in range(len(models)):
-        tab_data.append([models[i]] + errors[i])
+    tab_data = [[models[i]] + errors[i] for i in range(len(models))]
     print_table(tab_data, error_labels)
 
 
