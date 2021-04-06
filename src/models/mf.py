@@ -1,10 +1,10 @@
-import numpy
+import time
+import progressbar
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
-import time
-import progressbar
+from src.preprocessing.dataloader import UserDataset
 
 
 def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
@@ -104,6 +104,7 @@ def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
     ground_truth = unmasked_R * unseen_mask
     ground_truth_mask = (ground_truth > 0)
     predictions = predicted_R * ground_truth_mask
+    print('MF')
     precisions, recalls = getPandR(ks, predictions, ground_truth)
     error = MAE(predictions, ground_truth)
     rmse = RMSE(predictions, ground_truth)
@@ -112,8 +113,6 @@ def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
 def getPandR(ks, predictions, ground_truth):
     sorted_pred_idxs = np.dstack(np.unravel_index(np.argsort(predictions.ravel()), predictions.shape))[0][::-1]
     precisions, recalls = [], []
-    print(ground_truth)
-    print(predictions)
     for k in ks:
         k_count = 0
         true_pos, false_pos, true_neg, false_neg = 0, 0, 0, 0
@@ -203,9 +202,15 @@ if __name__ == "__main__":
      [5.,1.,5.,5.],
      [4.,1.,4.,4.],
      [4.,1.,4.,5.],
-     [1.,1.,4.,4.],
+     [1.,4.,4.,4.],
      [1.,1.,5.,4.],
     ])
+
+
+    train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
+    val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
+    masked_R = train_dataset.get_interaction(style="numpy")
+    unmasked_R = val_dataset.get_interaction(style="numpy")
 
     ks = [3, 5, 10, 15]
     evalMF(masked_R, unmasked_R, ks)
