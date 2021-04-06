@@ -7,7 +7,7 @@ import time
 import progressbar
 
 
-def matrix_factorization(R, P, Q, K, steps=10000, alpha=0.0002, beta=0.02):
+def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
     mask = R > 0
     Q = Q.T
     for step in progressbar.progressbar(range(steps)):
@@ -29,7 +29,7 @@ def matrix_factorization(R, P, Q, K, steps=10000, alpha=0.0002, beta=0.02):
                         e = e + (beta/2) * (pow(P[i][k],2) + pow(Q[k][j],2))
         if e < 0.001:
             break
-        if np.allclose(eR*mask, R, rtol=.01):
+        if np.allclose(eR*mask, R, rtol=.05):
             print('All non-zero elements were close enough after {} steps. Returned.'.format(step))
             return P, Q.T
     return P, Q.T
@@ -51,17 +51,20 @@ def run_MF(R):
 
 def evalMF(masked_R, unmasked_R, ks):
     predicted_R, nP, nQ = run_MF(masked_R)
-    precisions, recalls, mae, rmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R)
+    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R)
     popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R)
     random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R)
-    MAPs = [precisions, popular_precisions, random_precisions]
-    MARs = [recalls, popular_recalls, random_recalls]
-    labels = ['Collaborative Filter', 'Popularity Recommender', 'Random Recommender']
-    plot_MAP(MAPs, labels, ks)
-    plot_MAR(MARs, labels, ks)
-    tab_data = [['MAE'] + [mae, popular_mae, random_mae], \
-                ['RMSE'] + [rmse, popular_rmse, random_rmse]]
-    print_table(tab_data, labels)
+    MAPs = [MFprecisions, popular_precisions, random_precisions]
+    MARs = [MFrecalls, popular_recalls, random_recalls]
+    models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
+    plot_MAP(MAPs, models, ks)
+    plot_MAR(MARs, models, ks)
+    error_labels = ['MAE', 'RMSE']
+    errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
+    tab_data = []
+    for i in range(len(models)):
+        tab_data.append([models[i]] + errors[i])
+    print_table(tab_data, error_labels)
 
 
 ############## Evaluation ###################
