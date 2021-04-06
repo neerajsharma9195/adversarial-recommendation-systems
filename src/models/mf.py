@@ -15,16 +15,16 @@ def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
         for i in range(len(R)):
             for j in range(len(R[i])):
                 if R[i][j] > 0:
-                    eij = R[i][j] - numpy.dot(P[i,:],Q[:,j])
+                    eij = R[i][j] - np.dot(P[i,:],Q[:,j])
                     for k in range(K):
                         P[i][k] = P[i][k] + alpha * (2 * eij * Q[k][j] - beta * P[i][k])
                         Q[k][j] = Q[k][j] + alpha * (2 * eij * P[i][k] - beta * Q[k][j])
-        eR = numpy.dot(P,Q)
+        eR = np.dot(P,Q)
         e = 0
         for i in range(len(R)):
             for j in range(len(R[i])):
                 if R[i][j] > 0:
-                    e = e + pow(R[i][j] - numpy.dot(P[i,:],Q[:,j]), 2)
+                    e = e + pow(R[i][j] - np.dot(P[i,:],Q[:,j]), 2)
                     for k in range(K):
                         e = e + (beta/2) * (pow(P[i][k],2) + pow(Q[k][j],2))
         if e < 0.001:
@@ -36,16 +36,16 @@ def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
 
 
 def run_MF(R):
-    R = numpy.array(R)
+    R = np.array(R)
     N = len(R)
     M = len(R[0])
     K = 2  # hidden dim
     # random initialization of P and Q
-    P = numpy.random.rand(N,K)
-    Q = numpy.random.rand(M,K)
+    P = np.random.rand(N,K)
+    Q = np.random.rand(M,K)
     # factorize R into nP and nQ
     nP, nQ = matrix_factorization(R, P, Q, K)
-    nR = numpy.dot(nP, nQ.T)
+    nR = np.dot(nP, nQ.T)
     return nR, nP, nQ
 
 
