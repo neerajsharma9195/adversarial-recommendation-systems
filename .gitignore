@@ -136,6 +136,7 @@ dmypy.json
 wandb
 data
 results
+src/models/*.c
 
 # data
 ./src/data
