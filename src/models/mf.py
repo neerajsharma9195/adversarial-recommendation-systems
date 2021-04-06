@@ -3,12 +3,15 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
+import time
+import progressbar
 
 
-def matrix_factorization(R, P, Q, K, steps=50000, alpha=0.0002, beta=0.02):
+def matrix_factorization(R, P, Q, K, steps=10000, alpha=0.0002, beta=0.02):
     mask = R > 0
     Q = Q.T
-    for step in range(steps):
+    for step in progressbar.progressbar(range(steps)):
+    # for step in range(steps):
         for i in range(len(R)):
             for j in range(len(R[i])):
                 if R[i][j] > 0:
@@ -29,7 +32,6 @@ def matrix_factorization(R, P, Q, K, steps=50000, alpha=0.0002, beta=0.02):
         if np.allclose(eR*mask, R, rtol=.01):
             print('All non-zero elements were close enough after {} steps. Returned.'.format(step))
             return P, Q.T
-
     return P, Q.T
 
 
@@ -47,17 +49,19 @@ def run_MF(R):
     return nR, nP, nQ
 
 
-def evalMF(masked_R, ks):
+def evalMF(masked_R, unmasked_R, ks):
     predicted_R, nP, nQ = run_MF(masked_R)
-    precisions, recalls, error = CF_metrics(ks, masked_R, predicted_R, unmasked_R)
-    popular_precisions, popular_recalls, popular_error = popularity_metrics(ks, masked_R, unmasked_R)
-    random_precisions, random_recalls, random_error = random_metrics(ks, masked_R, unmasked_R)
+    precisions, recalls, mae, rmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R)
+    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R)
+    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R)
     MAPs = [precisions, popular_precisions, random_precisions]
     MARs = [recalls, popular_recalls, random_recalls]
     labels = ['Collaborative Filter', 'Popularity Recommender', 'Random Recommender']
     plot_MAP(MAPs, labels, ks)
     plot_MAR(MARs, labels, ks)
-    print_table([error, popular_error, random_error], labels)
+    tab_data = [['MAE'] + [mae, popular_mae, random_mae], \
+                ['RMSE'] + [rmse, popular_rmse, random_rmse]]
+    print_table(tab_data, labels)
 
 
 ############## Evaluation ###################
@@ -79,7 +83,8 @@ def popularity_metrics(ks, masked_R, unmasked_R):
     # get precisions and recalls for all k
     precisions, recalls = getPandR(ks, predictions, ground_truth)
     error = MAE(predictions, ground_truth)
-    return precisions, recalls, error
+    rmse = RMSE(predictions, ground_truth)
+    return precisions, recalls, error, rmse
 
 
 def random_metrics(ks, masked_R, unmasked_R):
@@ -89,7 +94,8 @@ def random_metrics(ks, masked_R, unmasked_R):
     predictions = np.random.rand(*masked_R.shape) * 5 * ground_truth_mask
     precisions, recalls = getPandR(ks, predictions, ground_truth)
     error = MAE(predictions, ground_truth)
-    return precisions, recalls, error
+    rmse = RMSE(predictions, ground_truth)
+    return precisions, recalls, error, rmse
 
 
 def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
@@ -99,7 +105,8 @@ def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
     predictions = predicted_R * ground_truth_mask
     precisions, recalls = getPandR(ks, predictions, ground_truth)
     error = MAE(predictions, ground_truth)
-    return precisions, recalls, error
+    rmse = RMSE(predictions, ground_truth)
+    return precisions, recalls, error, rmse
 
 def getPandR(ks, predictions, ground_truth):
     sorted_pred_idxs = np.dstack(np.unravel_index(np.argsort(predictions.ravel()), predictions.shape))[0][::-1]
@@ -118,20 +125,28 @@ def getPandR(ks, predictions, ground_truth):
     return precisions, recalls
 
 
-def RMSE(ks, masked_R, predicted_R, unmasked_R):
-    return 0
-
-
-def MAE(predictions, ground_truth):
-    MAE = 0
+def RMSE(predictions, ground_truth):
+    rmse = 0
     total = 0
     num_users, num_items = ground_truth.shape
     for i in range(num_users):
         for j in range(num_items):
-            MAE += abs(predictions[i,j] - ground_truth[i,j])
+            rmse += (predictions[i,j] - ground_truth[i,j])**2
             total += 1
-    MAE /= total
-    return MAE
+    rmse /= total
+    return np.sqrt(rmse)
+
+
+def MAE(predictions, ground_truth):
+    mae = 0
+    total = 0
+    num_users, num_items = ground_truth.shape
+    for i in range(num_users):
+        for j in range(num_items):
+            mae += abs(predictions[i,j] - ground_truth[i,j])
+            total += 1
+    mae /= total
+    return mae
 
 
 def plot_MAP(MAPs, labels, ks):
@@ -154,8 +169,8 @@ def plot_MAR(MARs, labels, ks):
     # plt.savefig('./results/MAR@k')
     plt.show()
 
-def print_table(MAE_list, labels):
-    table = tabulate([MAE_list], headers=labels)
+def print_table(tab_data, labels):
+    table = tabulate(tab_data, headers=labels, tablefmt="fancy_grid")
     print(table)
 
 
@@ -164,20 +179,25 @@ def print_table(MAE_list, labels):
 
 if __name__ == "__main__":
     masked_R = np.array([
-     [5.,3.,0.,1.],
-     [0.,0.,0.,1.],
-     [1.,1.,0.,5.],
-     [1.,0.,0.,4.],
-     [0.,0.,5.,4.],
-    ])
-
-    unmasked_R = np.array([
-     [5.,3.,0.,1.],
-     [4.,0.,0.,1.],
-     [1.,1.,0.,5.],
-     [1.,0.,0.,4.],
+     [5.,1.,5.,0.],
+     [4.,0.,0.,4.],
+     [0.,1.,4.,5.],
+     [0.,0.,0.,4.],
      [0.,1.,5.,4.],
     ])
 
+    unmasked_R = np.array([
+     [5.,1.,5.,5.],
+     [4.,1.,4.,4.],
+     [4.,1.,4.,5.],
+     [4.,1.,4.,4.],
+     [5.,1.,5.,4.],
+    ])
+
+    # dims = (20,40)
+    # mask = np.random.rand(*dims) > .5
+    # unmasked_R = np.random.rand(*dims) * 5
+    # masked_R = unmasked_R * mask
+
     ks = [3, 5, 10, 15]
-    evalMF(masked_R, ks)
+    evalMF(masked_R, unmasked_R, ks)
