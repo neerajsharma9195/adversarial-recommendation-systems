@@ -1,3 +1,4 @@
+import os
 import time
 import progressbar
 import numpy as np
@@ -7,7 +8,7 @@ from tabulate import tabulate
 from src.preprocessing.dataloader import UserDataset
 
 
-def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
+def matrix_factorization(R, P, Q, K, steps=20, alpha=0.0002, beta=0.02):
     mask = R > 0
     Q = Q.T
     for step in progressbar.progressbar(range(steps)):
@@ -39,7 +40,7 @@ def run_MF(R):
     R = np.array(R)
     N = len(R)
     M = len(R[0])
-    K = 2  # hidden dim
+    K = 50  # hidden dim
     # random initialization of P and Q
     P = np.random.rand(N,K)
     Q = np.random.rand(M,K)
@@ -58,6 +59,7 @@ def evalMF(masked_R, unmasked_R, ks):
     MAPs = [random_precisions, popular_precisions, MFprecisions]
     MARs = [random_recalls, popular_recalls, MFrecalls]
     errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
+    os.makedirs('results', exist_ok=True)
     plot_MAP(MAPs, models, ks)
     plot_MAR(MARs, models, ks)
     error_labels = ['MAE', 'RMSE']
@@ -162,23 +164,25 @@ def MAE(predictions, ground_truth):
 
 
 def plot_MAP(MAPs, labels, ks):
+    plt.figure(0)
     for i in range(len(MAPs)):
         plt.plot(ks, MAPs[i], label=labels[i])
     plt.title('Mean Average Precision at k (MAP@k)')
     plt.xlabel('k')
     plt.ylabel('Precision')
     plt.legend(loc='upper left')
-    # plt.savefig('./results/MAP@k')
+    plt.savefig('./results/MAPk')
     plt.show()
 
 def plot_MAR(MARs, labels, ks):
+    plt.figure(1)
     for i in range(len(MARs)):
         plt.plot(ks, MARs[i], label=labels[i])
     plt.title('Mean Average Recall at k (MAR@k)')
     plt.xlabel('k')
     plt.ylabel('Precision')
     plt.legend(loc='upper left')
-    # plt.savefig('./results/MAR@k')
+    plt.savefig('./results/MARk')
     plt.show()
 
 def print_table(tab_data, labels):
@@ -209,8 +213,8 @@ if __name__ == "__main__":
 
     train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
     val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
-    masked_R = train_dataset.get_interaction(style="numpy")
-    unmasked_R = val_dataset.get_interaction(style="numpy")
+    masked_R = train_dataset.get_interactions(style="numpy")
+    unmasked_R = val_dataset.get_interactions(style="numpy")
 
     ks = [3, 5, 10, 15]
     evalMF(masked_R, unmasked_R, ks)
