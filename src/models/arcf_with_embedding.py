@@ -134,7 +134,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             missing_d_optimizer.zero_grad()
             epoch_d_loss += d_loss.data
             d_loss.backward(retain_graph=True)
-            rating_d_optimizer.zero_grad()
+            rating_d_optimizer.step()
             missing_d_optimizer.step()
 
         embedding.zero_grad()
@@ -158,7 +158,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
         torch.save(rating_generator.state_dict(),
                    os.path.join(output_path, "{}_rating_generator_epoch_{}.pt".format(path_name, epoch)))
         torch.save(missing_generator.state_dict(),
-                   os.path.join(output_path, "{}_missing_generator_eoch_{}.pt".format(path_name, epoch)))
+                   os.path.join(output_path, "{}_missing_generator_epoch_{}.pt".format(path_name, epoch)))
         torch.save(rating_discriminator.state_dict(),
                    os.path.join(output_path, "{}_rating_discriminator_epoch_{}.pt".format(path_name, epoch)))
         torch.save(missing_discriminator.state_dict(),
