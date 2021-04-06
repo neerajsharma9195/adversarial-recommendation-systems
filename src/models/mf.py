@@ -112,15 +112,27 @@ def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
 def getPandR(ks, predictions, ground_truth):
     sorted_pred_idxs = np.dstack(np.unravel_index(np.argsort(predictions.ravel()), predictions.shape))[0][::-1]
     precisions, recalls = [], []
+    print(ground_truth)
+    print(predictions)
     for k in ks:
+        k_count = 0
         true_pos, false_pos, true_neg, false_neg = 0, 0, 0, 0
-        for idx in range(k):
-            i, j = sorted_pred_idxs[idx]
-            true_pos += 1
-            false_pos += 2
-            false_neg += 3
-        precision = true_pos / (true_pos + false_pos)
-        recall = true_pos / (true_pos + false_neg)
+        for i, j in sorted_pred_idxs:
+            if k_count >= k:
+                break
+            else:
+                if ground_truth[i,j] != 0:
+                    k_count += 1
+                    if ground_truth[i,j] >= 3.5:
+                        if predictions[i,j] >= 3.5:
+                            true_pos += 1
+                        if predictions[i,j] < 3.5:
+                            false_neg += 1
+                    if ground_truth[i,j] < 3.5:
+                        if predictions[i,j] >= 3.5:
+                            false_pos += 1
+        precision = true_pos / (true_pos + false_pos + .00001)
+        recall = true_pos / (true_pos + false_neg + .00001)
         precisions.append(precision)
         recalls.append(recall)
     return precisions, recalls
@@ -191,14 +203,9 @@ if __name__ == "__main__":
      [5.,1.,5.,5.],
      [4.,1.,4.,4.],
      [4.,1.,4.,5.],
-     [4.,1.,4.,4.],
-     [5.,1.,5.,4.],
+     [1.,1.,4.,4.],
+     [1.,1.,5.,4.],
     ])
-
-    # dims = (20,40)
-    # mask = np.random.rand(*dims) > .5
-    # unmasked_R = np.random.rand(*dims) * 5
-    # masked_R = unmasked_R * mask
 
     ks = [3, 5, 10, 15]
     evalMF(masked_R, unmasked_R, ks)
