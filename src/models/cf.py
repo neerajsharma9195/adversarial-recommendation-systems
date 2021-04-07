@@ -6,18 +6,24 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 from src.preprocessing.dataloader import UserDataset
-from src.models.mf import matrix_factorization
+from src.models.mf import matrix_factorization, getPandR, MAE, RMSE
+
 
 def run_MF(R):
     R = np.array(R)
     N = len(R)
     M = len(R[0])
-    K = 50  # hidden dim
+    K = 500  # hidden dim
     # random initialization of P and Q
     P = np.random.rand(N,K)
     Q = np.random.rand(M,K)
     # factorize R into nP and nQ
-    nP, nQ = matrix_factorization(R, P, Q, K)
+    print('factorizing...\r')
+    start = time.time()
+    nP, nQ = matrix_factorization(R, P, Q, K, steps=50000)
+    end = time.time()
+    print('done')
+    print('finished running in ', round(end-start), ' seconds')
     nR = np.dot(nP, nQ.T)
     return nR, nP, nQ
 
@@ -42,6 +48,7 @@ def evalMF(masked_R, unmasked_R, ks):
 ############## Evaluation ###################
 
 def popularity_metrics(ks, masked_R, unmasked_R):
+    print('calculating popularity metrics...', end='')
     num_users, num_items = masked_R.shape
     # sum over all users
     most_popular_items = np.sum(masked_R, axis=0)
@@ -57,82 +64,39 @@ def popularity_metrics(ks, masked_R, unmasked_R):
     predictions = most_popular * ground_truth_mask
     # get precisions and recalls for all k
     precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error = MAE(predictions, ground_truth)
+    error, alt = MAE(predictions, ground_truth)
+    print(error, alt)
     rmse = RMSE(predictions, ground_truth)
+    print('done')
     return precisions, recalls, error, rmse
 
 
 def random_metrics(ks, masked_R, unmasked_R):
+    print('calculating random metrics...', end='')
     unseen_mask = (masked_R == 0)
     ground_truth = unmasked_R * unseen_mask
     ground_truth_mask = (ground_truth > 0)
     predictions = np.random.rand(*masked_R.shape) * 5 * ground_truth_mask
     precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error = MAE(predictions, ground_truth)
+    error, alt = MAE(predictions, ground_truth)
+    print(error, alt)
     rmse = RMSE(predictions, ground_truth)
+    print('done')
     return precisions, recalls, error, rmse
 
 
 def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
+    print('calculating CF metrics...', end='')
     unseen_mask = (masked_R == 0)
     ground_truth = unmasked_R * unseen_mask
     ground_truth_mask = (ground_truth > 0)
     predictions = predicted_R * ground_truth_mask
-    print('MF')
     precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error = MAE(predictions, ground_truth)
+    error, alt = MAE(predictions, ground_truth)
+    print(error, alt)
     rmse = RMSE(predictions, ground_truth)
+    print('done')
     return precisions, recalls, error, rmse
-
-def getPandR(ks, predictions, ground_truth):
-    sorted_pred_idxs = np.dstack(np.unravel_index(np.argsort(predictions.ravel()), predictions.shape))[0][::-1]
-    precisions, recalls = [], []
-    for k in ks:
-        k_count = 0
-        true_pos, false_pos, true_neg, false_neg = 0, 0, 0, 0
-        for i, j in sorted_pred_idxs:
-            if k_count >= k:
-                break
-            else:
-                if ground_truth[i,j] != 0:
-                    k_count += 1
-                    if ground_truth[i,j] >= 3.5:
-                        if predictions[i,j] >= 3.5:
-                            true_pos += 1
-                        if predictions[i,j] < 3.5:
-                            false_neg += 1
-                    if ground_truth[i,j] < 3.5:
-                        if predictions[i,j] >= 3.5:
-                            false_pos += 1
-        precision = true_pos / (true_pos + false_pos + .00001)
-        recall = true_pos / (true_pos + false_neg + .00001)
-        precisions.append(precision)
-        recalls.append(recall)
-    return precisions, recalls
-
-
-def RMSE(predictions, ground_truth):
-    rmse = 0
-    total = 0
-    num_users, num_items = ground_truth.shape
-    for i in range(num_users):
-        for j in range(num_items):
-            rmse += (predictions[i,j] - ground_truth[i,j])**2
-            total += 1
-    rmse /= total
-    return np.sqrt(rmse)
-
-
-def MAE(predictions, ground_truth):
-    mae = 0
-    total = 0
-    num_users, num_items = ground_truth.shape
-    for i in range(num_users):
-        for j in range(num_items):
-            mae += abs(predictions[i,j] - ground_truth[i,j])
-            total += 1
-    mae /= total
-    return mae
 
 
 def plot_MAP(MAPs, labels, ks):
@@ -182,11 +146,15 @@ if __name__ == "__main__":
      [1.,1.,5.,4.],
     ])
 
-
-    train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
-    val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
-    masked_R = train_dataset.get_interactions(style="numpy")
-    unmasked_R = val_dataset.get_interactions(style="numpy")
-
-    ks = [3, 5, 10, 15]
+    # print('loading the data...', end='')
+    # start = time.time()
+    # train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
+    # val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
+    # masked_R = train_dataset.get_interactions(style="numpy")
+    # unmasked_R = val_dataset.get_interactions(style="numpy")
+    # end = time.time()
+    # print('done')
+    # print('downloaded in ', round(end-start), ' seconds')
+    
+    ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
     evalMF(masked_R, unmasked_R, ks)
