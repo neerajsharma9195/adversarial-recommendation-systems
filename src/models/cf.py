@@ -14,13 +14,13 @@ def run_MF(R):
     N = len(R)
     M = len(R[0])
     K = 500  # hidden dim
-    # random initialization of P and Q
+
     P = np.random.rand(N,K)
     Q = np.random.rand(M,K)
-    # factorize R into nP and nQ
-    print('factorizing...\r')
+
+    print('factorizing...')
     start = time.time()
-    nP, nQ = matrix_factorization(R, P, Q, K, steps=50000)
+    nP, nQ = matrix_factorization(R, P, Q, K, steps=1000)
     end = time.time()
     print('done')
     print('finished running in ', round(end-start), ' seconds')
@@ -48,7 +48,7 @@ def evalMF(masked_R, unmasked_R, ks):
 ############## Evaluation ###################
 
 def popularity_metrics(ks, masked_R, unmasked_R):
-    print('calculating popularity metrics...', end='')
+    print('calculating popularity metrics...')
     num_users, num_items = masked_R.shape
     # sum over all users
     most_popular_items = np.sum(masked_R, axis=0)
@@ -64,36 +64,34 @@ def popularity_metrics(ks, masked_R, unmasked_R):
     predictions = most_popular * ground_truth_mask
     # get precisions and recalls for all k
     precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error, alt = MAE(predictions, ground_truth)
-    print(error, alt)
+    error = MAE(predictions, ground_truth)
     rmse = RMSE(predictions, ground_truth)
     print('done')
     return precisions, recalls, error, rmse
 
 
 def random_metrics(ks, masked_R, unmasked_R):
-    print('calculating random metrics...', end='')
+    print('calculating random metrics...')
     unseen_mask = (masked_R == 0)
     ground_truth = unmasked_R * unseen_mask
     ground_truth_mask = (ground_truth > 0)
     predictions = np.random.rand(*masked_R.shape) * 5 * ground_truth_mask
     precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error, alt = MAE(predictions, ground_truth)
-    print(error, alt)
+    error = MAE(predictions, ground_truth)
     rmse = RMSE(predictions, ground_truth)
     print('done')
     return precisions, recalls, error, rmse
 
 
 def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
-    print('calculating CF metrics...', end='')
+    print('calculating CF metrics...')
     unseen_mask = (masked_R == 0)
     ground_truth = unmasked_R * unseen_mask
     ground_truth_mask = (ground_truth > 0)
     predictions = predicted_R * ground_truth_mask
     precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error, alt = MAE(predictions, ground_truth)
-    print(error, alt)
+    error = MAE(predictions, ground_truth)
+    # print(np.round(predictions))
     rmse = RMSE(predictions, ground_truth)
     print('done')
     return precisions, recalls, error, rmse
@@ -130,31 +128,32 @@ def print_table(tab_data, labels):
 
 
 if __name__ == "__main__":
-    masked_R = np.array([
-     [5.,1.,5.,0.],
-     [4.,0.,0.,4.],
-     [0.,1.,4.,5.],
-     [0.,0.,0.,4.],
-     [0.,1.,5.,4.],
-    ])
+    # masked_R = np.array([
+    #  [5.,1.,5.,0.],
+    #  [0.,0.,0.,4.],
+    #  [0.,1.,4.,5.],
+    #  [0.,0.,0.,4.],
+    #  [0.,1.,5.,4.],
+    # ])
 
-    unmasked_R = np.array([
-     [5.,1.,5.,5.],
-     [4.,1.,4.,4.],
-     [4.,1.,4.,5.],
-     [1.,4.,4.,4.],
-     [1.,1.,5.,4.],
-    ])
+    # unmasked_R = np.array([
+    #  [5.,1.,5.,5.],
+    #  [4.,0.,4.,4.],
+    #  [4.,1.,4.,5.],
+    #  [4.,4.,0.,4.],
+    #  [0.,1.,5.,4.],
+    # ])
 
-    # print('loading the data...', end='')
-    # start = time.time()
-    # train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
-    # val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
-    # masked_R = train_dataset.get_interactions(style="numpy")
-    # unmasked_R = val_dataset.get_interactions(style="numpy")
-    # end = time.time()
-    # print('done')
-    # print('downloaded in ', round(end-start), ' seconds')
+    print('loading the data...')
+    start = time.time()
+    train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
+    val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
+    masked_R = train_dataset.get_interactions(style="numpy")
+    unmasked_R = val_dataset.get_interactions(style="numpy")
+    end = time.time()
+    print('done')
+    print('downloaded in ', round(end-start), ' seconds')
     
+    # ks = [3, 5, 10]
     ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
     evalMF(masked_R, unmasked_R, ks)

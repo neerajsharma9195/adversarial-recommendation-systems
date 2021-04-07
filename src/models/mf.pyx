@@ -20,7 +20,7 @@ def matrix_factorization(R, P, Q, K, steps=20, alpha=0.0002, beta=0.02):
         for i in range(len(R)):
             for j in range(len(R[i])):
                 if R[i][j] > 0:
-                    e = e + R[i][j] - np.dot(P[i,:],Q[:,j])**2
+                    e = e + (R[i][j] - np.dot(P[i,:],Q[:,j]))**2
                     for k in range(K):
                         e = e + (beta/2) * (P[i][k]**2 + Q[k][j]**2)
         if e < 0.001:
@@ -81,5 +81,4 @@ def MAE(predictions, ground_truth):
                 mae += abs(predictions[i,j] - ground_truth[i,j])
                 total += 1
     mae /= total
-    alt = np.sum(np.abs(predictions - ground_truth))
-    return mae, alt
+    return mae

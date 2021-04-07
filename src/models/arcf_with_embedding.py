@@ -184,22 +184,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
 
 
 def evaluate_cf(test_dataloader, rating_generator, missing_generator):
-    missing_generator.eval()
-    rating_generator.eval()
-    # mask test data
-    # print(len(test_dataloader.dataset))
-    # for i, batch in enumerate(test_dataloader):
-    #     review_embedding, rating_vector, index_item = batch
-    #     print('rating vec = ', rating_vector)
-    #     print([(i, rating_vector[i]) for i in rating_vector if rating_vector[i] != 0])
-    # generate augmented users & items
-    # make CF matrix
-    # compare predictions with masks
-    # calculate & return:
-    #   precision, recall, nDCG(?) MRR(?)
-    # precision = true positives / true positives and false positives
-    # recall = true positives / true positives and false negatives
-    # MAE = 1/N sumN |x_i - x|
     return 0
 
 
