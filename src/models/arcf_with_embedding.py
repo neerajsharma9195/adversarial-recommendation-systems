@@ -67,9 +67,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                            review_embedding)
                 fake_missing_results = missing_discriminator(fake_missing_representation, conditional_vector,
                                                              review_embedding)
-                g_loss = g_loss.cpu().detach().numpy() + (np.log(1. - fake_rating_results.cpu().detach().numpy()) +
-                                                          np.log(1. - fake_missing_results.cpu().detach().numpy()))
-                g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
+                g_loss = g_loss + torch.log(1. - fake_rating_results) + torch.log(1. - fake_missing_results)
+                # g_loss = Variable(torch.tensor(g_loss, device=device), requires_grad=True)
                 if not is_user:
                     if i % 1000 == 0:
                         print("epoch {} g step {} processed {}".format(epoch, step, i))
@@ -115,12 +114,10 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                              review_embedding)
                 real_missing_results = missing_discriminator(real_missing_representation, conditional_vector,
                                                              review_embedding)
-                d_loss = d_loss.cpu().detach().numpy() - (
-                        np.log(real_rating_results.cpu().detach().numpy()) + np.log(
-                    real_missing_results.cpu().detach().numpy())
-                        + np.log(1. - fake_rating_results.cpu().detach().numpy()) +
-                        np.log(1. - fake_missing_results.cpu().detach().numpy()))
-                d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
+                d_loss = d_loss - (torch.log(real_rating_results) + torch.log(real_missing_results) + torch.log(
+                    1. - fake_rating_results) +
+                                   torch.log(1. - fake_missing_results))
+                # d_loss = Variable(torch.tensor(d_loss, device=device), requires_grad=True)
 
                 if not is_user:
                     if i % 1000 == 0:
@@ -191,7 +188,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 torch.save(rating_dense_representation.state_dict(),
                            os.path.join(output_path, "{}_rating_dense_representation_best.pt".format(path_name, epoch)))
                 torch.save(missing_dense_representation.state_dict(),
-                           os.path.join(output_path, "{}_missing_dense_representation_best.pt".format(path_name, epoch)))
+                           os.path.join(output_path,
+                                        "{}_missing_dense_representation_best.pt".format(path_name, epoch)))
             rating_generator.train()  # back to training mode
             missing_generator.train()
 
