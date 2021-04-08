@@ -1,14 +1,27 @@
 import time
+import progressbar
 import numpy as np
 from scipy import sparse
 
-def csr_allclose(a, b, rtol=1e-5, atol = 1e-8):
-    c = np.abs(np.abs(a - b) - rtol * np.abs(b))
-    return c.max() <= atol
+def sort_coo(m):
+    tuples = zip(m.row, m.col, m.data)
+    return sorted(tuples, key=lambda x: x[2], reverse=True)
+
+def csr_allclose(rows, cols, R, pred_R, tol=1e-5):
+    max_diff = 0
+    for idx in range(len(rows)):
+        i, j = rows[idx], cols[idx]
+        diff = R[i, j] - pred_R[i, j]
+        if diff > max_diff:
+            max_diff = diff
+            if max_diff > tol:
+                return False
+    return True
 
 def matrix_factorization(R, P, Q, K, steps=20, alpha=0.0002, beta=0.02):
     Q = Q.T
-    for step in range(steps):
+    R_csr = R.tocsr()
+    for step in progressbar.progressbar(range(steps)):
         for i,j,rating in zip(R.row, R.col, R.data):
             eij = rating - np.dot(P[i,:],Q[:,j])
             for k in range(K):
@@ -16,40 +29,39 @@ def matrix_factorization(R, P, Q, K, steps=20, alpha=0.0002, beta=0.02):
                 Q[k][j] = Q[k][j] + alpha * (2 * eij * P[i][k] - beta * Q[k][j])
         pred_R = sparse.coo_matrix(np.dot(P,Q))
         pred_R_csr = pred_R.tocsr()
-        R_csr = R.tocsr()
         e = 0
-        for i,j,rating in zip(R.row, R.col, R.data):
-            e += (R_csr[i][j] - pred_R_csr[i][j])**2
+        for i,j in zip(R.row, R.col):
+            e += (R_csr[i,j] - pred_R_csr[i,j])**2
             for k in range(K):
                 e += (beta/2) * (P[i][k]**2 + Q[k][j]**2)
         if e < 0.005:
             break
-        if allclose(pred_R_csr, R_csr, rtol=.05):
+        rows, cols = R_csr.nonzero()
+        if csr_allclose(rows, cols, R_csr, pred_R_csr, tol=.05):
             print('All non-zero elements were close enough after {} steps. Returned.'.format(step))
             return P, Q.T
     return P, Q.T
 
 
-def getPandR(ks, predictions, ground_truth):
-    sorted_pred_idxs = np.dstack(np.unravel_index(np.argsort(predictions.ravel()), predictions.shape))[0][::-1]
+def getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr):
+    sorted_predictions = sort_coo(predictions)
     precisions, recalls = [], []
     for k in ks:
         k_count = 0
         true_pos, false_pos, true_neg, false_neg = 0, 0, 0, 0
-        for i, j in sorted_pred_idxs:
-            if k_count >= k:
-                break
-            else:
-                if ground_truth[i,j] != 0:
-                    k_count += 1
-                    if ground_truth[i,j] >= 3.5:
-                        if predictions[i,j] >= 3.5:
-                            true_pos += 1
-                        if predictions[i,j] < 3.5:
-                            false_neg += 1
-                    if ground_truth[i,j] < 3.5:
-                        if predictions[i,j] >= 3.5:
-                            false_pos += 1
+        for i, j, v in sorted_predictions:
+            if ground_truth_csr[i,j] != 0:
+                if k_count >= k:
+                    break
+                k_count += 1
+                if ground_truth_csr[i,j] >= 3.5:
+                    if predictions_csr[i,j] >= 3.5:
+                        true_pos += 1
+                    if predictions_csr[i,j] < 3.5:
+                        false_neg += 1
+                if ground_truth_csr[i,j] < 3.5:
+                    if predictions_csr[i,j] >= 3.5:
+                        false_pos += 1
         precision = true_pos / (true_pos + false_pos + .00001)
         recall = true_pos / (true_pos + false_neg + .00001)
         precisions.append(precision)
@@ -57,27 +69,19 @@ def getPandR(ks, predictions, ground_truth):
     return precisions, recalls
 
 
-def RMSE(predictions, ground_truth):
+def RMSE(predictions_csr, ground_truth_csr):
     rmse = 0
-    total = 0
-    num_users, num_items = ground_truth.shape
-    for i in range(num_users):
-        for j in range(num_items):
-            if ground_truth[i,j] != 0:
-                rmse += (predictions[i,j] - ground_truth[i,j])**2
-                total += 1
-    rmse /= total
+    rows, cols = ground_truth_csr.nonzero()
+    for i, j in zip(rows,cols):
+        rmse += (predictions_csr[i,j] - ground_truth_csr[i,j])**2
+    rmse /= ground_truth_csr.nnz
     return np.sqrt(rmse)
 
 
-def MAE(predictions, ground_truth):
+def MAE(predictions_csr, ground_truth_csr):
     mae = 0
-    total = 0
-    num_users, num_items = ground_truth.shape
-    for i in range(num_users):
-        for j in range(num_items):
-            if ground_truth[i,j] != 0:
-                mae += abs(predictions[i,j] - ground_truth[i,j])
-                total += 1
-    mae /= total
+    rows, cols = ground_truth_csr.nonzero()
+    for i, j in zip(rows,cols):
+        mae += abs(predictions_csr[i,j] - ground_truth_csr[i,j])
+    mae /= ground_truth_csr.nnz
     return mae

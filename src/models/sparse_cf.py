@@ -18,79 +18,80 @@ def run_MF(R):
 
     print('factorizing...')
     start = time.time()
-    nP, nQ = matrix_factorization(R, P, Q, K, steps=20000000)
+    nP, nQ = matrix_factorization(R, P, Q, K, steps=5000)
     end = time.time()
     print('done')
     print('finished running in ', round(end-start), ' seconds')
     return nP, nQ
 
 
-def evalMF(masked_R, unmasked_R, ks):
+def evalMF(masked_R, unmasked_R, ks, mask):
     P, Q = run_MF(masked_R)
     nR = np.dot(P, Q.T)
     predicted_R = sparse.coo_matrix(nR)
-    # MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R)
-    # popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R)
-    # random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R)
-    # models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
-    # MAPs = [random_precisions, popular_precisions, MFprecisions]
-    # MARs = [random_recalls, popular_recalls, MFrecalls]
-    # errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
-    # os.makedirs('results', exist_ok=True)
-    # plot_MAP(MAPs, models, ks)
-    # plot_MAR(MARs, models, ks)
-    # error_labels = ['MAE', 'RMSE']
-    # tab_data = [[models[i]] + errors[i] for i in range(len(models))]
-    # print_table(tab_data, error_labels)
+    
+    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R, mask)
+    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R, mask)
+    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R, mask)
+
+    models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
+    MAPs = [random_precisions, popular_precisions, MFprecisions]
+    MARs = [random_recalls, popular_recalls, MFrecalls]
+    errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
+    os.makedirs('results', exist_ok=True)
+    plot_MAP(MAPs, models, ks)
+    plot_MAR(MARs, models, ks)
+    error_labels = ['MAE', 'RMSE']
+    tab_data = [[models[i]] + errors[i] for i in range(len(models))]
+    print_table(tab_data, error_labels)
 
 
 ############## Evaluation ###################
 
-def popularity_metrics(ks, masked_R, unmasked_R):
+def popularity_metrics(ks, masked_R, unmasked_R, mask):
     print('calculating popularity metrics...')
     num_users, num_items = masked_R.shape
+    masked_csr = masked_R.tocsr()
     # sum over all users
-    most_popular_items = np.sum(masked_R, axis=0)
-    max_value = np.max(most_popular_items)
+    most_popular_items = masked_csr.sum(axis=0)
+    max_value = most_popular_items.max()
     # normalize most popular items to be in the range (1,5)
     most_popular_items = most_popular_items / max_value * 5
     # predict the (same) normalized vetor for all users
-    most_popular = np.tile(most_popular_items,(num_users,1))
-    # create masked predictions
-    unseen_mask = (masked_R == 0)
-    ground_truth = unmasked_R * unseen_mask
-    ground_truth_mask = (ground_truth > 0)
-    predictions = most_popular * ground_truth_mask
+    pred_most_popular = np.tile(most_popular_items,(num_users,1))
+    # create masked predictions and ground truth
+    predictions = sparse.coo_matrix(np.multiply(pred_most_popular, mask))
+    ground_truth = sparse.coo_matrix(unmasked_R.toarray() * mask)
+    predictions_csr, ground_truth_csr = predictions.tocsr(), ground_truth.tocsr()
     # get precisions and recalls for all k
-    precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error = MAE(predictions, ground_truth)
-    rmse = RMSE(predictions, ground_truth)
+    precisions, recalls = getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr)
+    error = MAE(predictions_csr, ground_truth_csr)
+    rmse = RMSE(predictions_csr, ground_truth_csr)
     print('done')
     return precisions, recalls, error, rmse
 
-def random_metrics(ks, masked_R, unmasked_R):
+def random_metrics(ks, masked_R, unmasked_R, mask):
     print('calculating random metrics...')
-    unseen_mask = (masked_R == 0)
-    ground_truth = unmasked_R * unseen_mask
-    ground_truth_mask = (ground_truth > 0)
-    predictions = np.random.rand(*masked_R.shape) * 5 * ground_truth_mask
-    precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error = MAE(predictions, ground_truth)
-    rmse = RMSE(predictions, ground_truth)
+    ground_truth = sparse.coo_matrix(unmasked_R.toarray() * mask)
+    predictions = sparse.coo_matrix(np.random.rand(*masked_R.shape) * 5 * mask)
+    predictions_csr, ground_truth_csr = predictions.tocsr(), ground_truth.tocsr()
+
+    precisions, recalls = getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr)
+    error = MAE(predictions_csr, ground_truth_csr)
+    rmse = RMSE(predictions_csr, ground_truth_csr)
     print('done')
     return precisions, recalls, error, rmse
 
 
-def CF_metrics(ks, masked_R, predicted_R, unmasked_R):
+def CF_metrics(ks, masked_R, predicted_R, unmasked_R, mask):
     print('calculating CF metrics...')
-    unseen_mask = (masked_R == 0)
-    ground_truth = unmasked_R * unseen_mask
-    ground_truth_mask = (ground_truth > 0)
-    predictions = predicted_R * ground_truth_mask
-    precisions, recalls = getPandR(ks, predictions, ground_truth)
-    error = MAE(predictions, ground_truth)
-    # print(np.round(predictions))
-    rmse = RMSE(predictions, ground_truth)
+    ground_truth = sparse.coo_matrix(unmasked_R.toarray() * mask)
+    predictions = sparse.coo_matrix(predicted_R.toarray() * mask)
+    predictions_csr, ground_truth_csr = predictions.tocsr(), ground_truth.tocsr()
+
+    precisions, recalls = getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr)
+    error = MAE(predictions_csr, ground_truth_csr)
+    rmse = RMSE(predictions_csr, ground_truth_csr)
     print('done')
     return precisions, recalls, error, rmse
 
@@ -131,26 +132,27 @@ if __name__ == "__main__":
      [0.,0.,0.,4.],
      [0.,1.,4.,5.],
      [0.,0.,0.,4.],
-     [0.,1.,5.,4.],
-     [0.,1.,0.,0.],
-     [0.,0.,4.,0.],
-     [0.,0.,0.,5.],
-     [3.,0.,0.,0.],
-     [0.,2.,0.,0.],
-    ])
+     [0.,1.,5.,4.],])
+    #  [0.,1.,0.,0.],
+    #  [0.,0.,4.,0.],
+    #  [0.,0.,0.,5.],
+    #  [3.,0.,0.,0.],
+    #  [0.,2.,0.,0.],
+    # ])
 
     unmasked_R = np.array([
      [5.,1.,5.,5.],
      [4.,0.,4.,4.],
      [4.,1.,4.,5.],
      [4.,4.,0.,4.],
-     [0.,1.,5.,4.],
-     [0.,1.,0.,0.],
-     [0.,0.,4.,0.],
-     [0.,0.,0.,5.],
-     [3.,0.,0.,0.],
-     [0.,2.,0.,0.],
-    ])
+     [0.,1.,5.,4.],])
+    #  [0.,1.,0.,0.],
+    #  [0.,0.,4.,0.],
+    #  [0.,0.,0.,5.],
+    #  [3.,0.,0.,0.],
+    #  [0.,2.,0.,0.],
+    # ])
+
 
     # print('loading the data...')
     # start = time.time()
@@ -162,9 +164,10 @@ if __name__ == "__main__":
     # print('done')
     # print('downloaded in ', round(end-start), ' seconds')
 
+    mask = np.logical_xor(unmasked_R, masked_R)
     masked_R = sparse.coo_matrix(masked_R)
     unmasked_R = sparse.coo_matrix(unmasked_R)
 
     ks = [3, 5, 10]
     # ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
-    evalMF(masked_R, unmasked_R, ks)
+    evalMF(masked_R, unmasked_R, ks, mask)
