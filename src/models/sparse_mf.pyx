@@ -37,20 +37,20 @@ def matrix_factorization(R, P, Q, K, steps=20, alpha=0.0002, beta=0.02):
         if e < 0.005:
             break
         rows, cols = R_csr.nonzero()
-        if csr_allclose(rows, cols, R_csr, pred_R_csr, tol=.05):
+        if csr_allclose(rows, cols, R_csr, pred_R_csr, tol=.07):
             print('All non-zero elements were close enough after {} steps. Returned.'.format(step))
             return P, Q.T
     return P, Q.T
 
 
-def getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr):
+def getPandR(ks, predictions, predictions_csr, ground_truth_csr, mask_csr):
     sorted_predictions = sort_coo(predictions)
     precisions, recalls = [], []
     for k in ks:
         k_count = 0
         true_pos, false_pos, true_neg, false_neg = 0, 0, 0, 0
         for i, j, v in sorted_predictions:
-            if ground_truth_csr[i,j] != 0:
+            if mask_csr[i,j] != 0:
                 if k_count >= k:
                     break
                 k_count += 1
@@ -62,26 +62,19 @@ def getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr):
                 if ground_truth_csr[i,j] < 3.5:
                     if predictions_csr[i,j] >= 3.5:
                         false_pos += 1
-        precision = true_pos / (true_pos + false_pos + .00001)
-        recall = true_pos / (true_pos + false_neg + .00001)
-        precisions.append(precision)
-        recalls.append(recall)
+        precision = true_pos / (true_pos + false_pos + .00000001)
+        recall = true_pos / (true_pos + false_neg + .00000001)
+        precisions.append(round(precision, 8))
+        recalls.append(round(recall, 8))
     return precisions, recalls
 
 
-def RMSE(predictions_csr, ground_truth_csr):
-    rmse = 0
-    rows, cols = ground_truth_csr.nonzero()
-    for i, j in zip(rows,cols):
-        rmse += (predictions_csr[i,j] - ground_truth_csr[i,j])**2
-    rmse /= ground_truth_csr.nnz
-    return np.sqrt(rmse)
-
-
-def MAE(predictions_csr, ground_truth_csr):
-    mae = 0
-    rows, cols = ground_truth_csr.nonzero()
-    for i, j in zip(rows,cols):
+def MAE_and_RMSE(predictions_csr, ground_truth_csr, mask_coo):
+    mae, rmse = 0, 0
+    total = mask_coo.nnz
+    for i, j in zip(mask_coo.row, mask_coo.col):
         mae += abs(predictions_csr[i,j] - ground_truth_csr[i,j])
-    mae /= ground_truth_csr.nnz
-    return mae
+        rmse += (predictions_csr[i,j] - ground_truth_csr[i,j])**2
+    mae /= total
+    rmse /= total
+    return mae, np.sqrt(rmse)
