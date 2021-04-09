@@ -68,6 +68,8 @@ while count < 2:
     indexes = [1, 2, 3]
     for index in indexes:
         user_reviews_embedding, user_ratings, idx = train_dataset.__getitem__(index)
+        user_reviews_embedding = torch.unsqueeze(user_reviews_embedding, 0)
+        user_ratings = torch.unsqueeze(user_ratings, 0)
         print("user_reviews_embedding type {} and shape {}".format(type(user_reviews_embedding), user_reviews_embedding.shape))
         print("user ratings type {} and shape {}".format(type(user_ratings), user_ratings.shape))
         print("idx type and shape {}".format(type(idx), idx.shape))
