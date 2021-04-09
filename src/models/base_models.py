@@ -39,13 +39,16 @@ class RatingDenseRepresentation(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_size, c_embedding_size, review_embedding_size, use_reviews=True):
+    def __init__(self, num_inputs, input_size, rating_dense_representation_size, c_embedding_size,
+                 review_embedding_size, use_reviews=True):
         super(Discriminator, self).__init__()
         self.use_reviews = use_reviews
+        self.user_or_item_embedding_layer = nn.Embedding(num_inputs, c_embedding_size)
+        self.rating_dense_representation = RatingDenseRepresentation(input_size, rating_dense_representation_size)
         if self.use_reviews:
-            input_dim = input_size + c_embedding_size + review_embedding_size
+            input_dim = rating_dense_representation_size + c_embedding_size + review_embedding_size
         else:
-            input_dim = input_size + c_embedding_size
+            input_dim = rating_dense_representation_size + c_embedding_size
         self.dis = nn.Sequential(
             nn.Linear(input_dim, 1024),
             nn.ReLU(True),
@@ -57,21 +60,24 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, rating_vector, embedding_vector, review_embedding):
+    def forward(self, rating_vector, input_index, review_embedding):
+        rating_dense_representation = self.rating_dense_representation(rating_vector)
+        embedding_vector = self.user_or_item_embedding_layer(input_index)
         if self.use_reviews:
-            data_c = torch.cat((rating_vector, embedding_vector, review_embedding), dim=1)
+            data_c = torch.cat((rating_dense_representation, embedding_vector, review_embedding), dim=1)
         else:
-            data_c = torch.cat((rating_vector, embedding_vector), dim=1)
+            data_c = torch.cat((rating_dense_representation, embedding_vector), dim=1)
         result = self.dis(data_c)
         return result
 
 
 class Generator(nn.Module):
-    def __init__(self, input_size, item_count, c_embedding_size, review_embedding_size, use_reviews=True):
+    def __init__(self, num_inputs, input_size, item_count, c_embedding_size, review_embedding_size, use_reviews=True):
         self.input_size = input_size
         self.output_size = item_count
         self.use_reviews = use_reviews
         super(Generator, self).__init__()
+        self.user_or_item_embedding_layer = nn.Embedding(num_inputs, c_embedding_size)
         if use_reviews:
             input_dim = self.input_size + c_embedding_size + review_embedding_size
         else:
@@ -87,7 +93,8 @@ class Generator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, noise_vector, embedding_vector, review_embedding):
+    def forward(self, noise_vector, input_index, review_embedding):
+        embedding_vector = self.user_or_item_embedding_layer(input_index)
         if self.use_reviews:
             G_input = torch.cat((noise_vector, embedding_vector, review_embedding), dim=1)
         else:
