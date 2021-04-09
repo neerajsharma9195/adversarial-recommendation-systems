@@ -65,7 +65,7 @@ def generate_neighbor(index, review_embeddings):
 count = 0
 
 while count < 2:
-    indexes = random.sample(num_users, 2)
+    indexes = [1, 2, 3]
     for index in indexes:
         user_reviews_embedding, user_ratings, idx = train_dataset.__getitem__(index)
         print("user_reviews_embedding type {} and shape {}".format(type(user_reviews_embedding), user_reviews_embedding.shape))
