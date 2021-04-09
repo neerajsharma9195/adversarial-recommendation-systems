@@ -73,6 +73,8 @@ while count < 2:
         print("user_reviews_embedding type {} and shape {}".format(type(user_reviews_embedding), user_reviews_embedding.shape))
         print("user ratings type {} and shape {}".format(type(user_ratings), user_ratings.shape))
         print("idx type and shape {}".format(type(idx), idx.shape))
+        neighbor = generate_neighbor(idx, user_reviews_embedding)
+        print("neighbors shape {} type {}".format(neighbor.shape, type(neighbor)))
     count += 1
 
 
