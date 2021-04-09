@@ -1,5 +1,4 @@
 import torch
-import random
 from torch.utils.data import DataLoader
 import os
 import numpy as np
@@ -21,6 +20,7 @@ num_users = train_dataset.numIDs
 num_items = train_dataset.numItems
 print("train numUsers {}".format(num_users))
 print("train numItems {}".format(num_items))
+
 user_embedding_dim = 128
 noise_size = 128
 review_embedding_size = 128

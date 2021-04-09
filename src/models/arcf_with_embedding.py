@@ -16,6 +16,9 @@ config = wandb.config
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def RMSELoss(generated_rating_vector, true_rating_vector):
+    return torch.sqrt(torch.mean((generated_rating_vector-true_rating_vector)**2))
+
 
 def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
@@ -31,6 +34,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
+        rmse_rating_loss = 0
         for step in range(g_step):
             g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
@@ -52,6 +56,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                            review_embedding)
                 fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
                 g_loss = g_loss + torch.log(1. - fake_rating_results) + torch.log(1. - fake_missing_results)
+                rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing, rating_vector)
                 if not is_user:
                     if i % 1000 == 0:
                         print("epoch {} g step {} processed {}".format(epoch, step, i))
@@ -112,7 +117,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
             wandb.log({
                 'epoch': epoch,
                 'user_generator_loss': epoch_g_loss,
-                'user_discriminator_loss': epoch_d_loss
+                'user_discriminator_loss': epoch_d_loss,
+                'rmse_genreator_loss': rmse_rating_loss
             })
         else:
             wandb.log({
@@ -196,9 +202,9 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     wandb.watch(user_missing_generator)
     wandb.watch(user_rating_discriminator)
     wandb.watch(user_missing_discriminator)
-    g_step = 5
-    d_step = 2
-    num_epochs = 500
+    g_step = 4
+    d_step = 3
+    num_epochs = 100
     user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
     user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
