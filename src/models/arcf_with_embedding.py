@@ -16,8 +16,9 @@ config = wandb.config
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 def RMSELoss(generated_rating_vector, true_rating_vector):
-    return torch.sqrt(torch.mean((generated_rating_vector-true_rating_vector)**2))
+    return torch.sqrt(torch.mean((generated_rating_vector - true_rating_vector) ** 2))
 
 
 def train(rating_generator, missing_generator, rating_discriminator,
@@ -118,7 +119,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 'epoch': epoch,
                 'user_generator_loss': epoch_g_loss,
                 'user_discriminator_loss': epoch_d_loss,
-                'rmse_genreator_loss': rmse_rating_loss
+                'rmse_generator_loss': rmse_rating_loss
             })
         else:
             wandb.log({
