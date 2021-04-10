@@ -18,6 +18,13 @@ def csr_allclose(rows, cols, R, pred_R, tol=1e-5):
                 return False
     return True
 
+def predict_with_surprise(unmasked_R_csr, mask_coo, algo):
+    result = mask_coo.copy().tocsr()
+    for i, j in zip(mask_coo.row, mask_coo.col):
+        output = algo.predict(str(i), str(j), r_ui=unmasked_R_csr[i,j])
+        result[i,j] = output[3]
+    return result
+
 def matrix_factorization(R, P, Q, K, steps=20, alpha=0.0002, beta=0.02):
     Q = Q.T
     R_csr = R.tocsr()
@@ -67,6 +74,7 @@ def getPandR(ks, predictions, ground_truth, predictions_csr, ground_truth_csr):
         precisions.append(precision)
         recalls.append(recall)
     return precisions, recalls
+
 
 
 def RMSE(predictions_csr, ground_truth_csr):
