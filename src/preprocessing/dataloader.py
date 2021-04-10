@@ -1,4 +1,5 @@
 import os
+from scipy.sparse import coo_matrix
 import torch
 import numpy as np
 import tables as tb
@@ -8,7 +9,7 @@ from typing import Union, List, Tuple
 
 
 class UserDataset(torch.utils.data.Dataset):
-    """Implements Dataloader"""
+    """Implements User Dataloader"""
     PATH = os.path.join(DATASET_DIR, HDF5_DATASET)
 
     @staticmethod
@@ -21,219 +22,281 @@ class UserDataset(torch.utils.data.Dataset):
     def hdfarray_to_tensor(hdfarray: tb.CArray):
         return torch.from_numpy(hdfarray[:])
 
-    def __init__(self, data_name: str, path=PATH, load_full=False, subset_only=True, masked='partial'):
-        self.subset_only = subset_only
-        self.load_full = load_full
+    @staticmethod
+    def vec_to_sparse(i: np.ndarray, j: np.ndarray, v: np.ndarray,
+                      size=None, load_full=False, style='tensor') -> Union[torch.Tensor, coo_matrix, np.ndarray]:
+        if style == 'tensor':
+            idx = torch.stack((i, j), axis=0)
+            sparsed_matrix = torch.sparse_coo_tensor(idx, v, size=size)
+            if load_full:
+                sparsed_matrix = sparsed_matrix.to_dense()
+        elif style == 'numpy':
+            if len(i.shape) + len(j.shape) + len(v.shape) != 3:
+                raise ValueError("scipy.coo_matrix: row, column, and data arrays must be 1-D")
+            i, j = i.numpy().astype(np.uint), j.numpy().astype(np.uint)
+            v = v.numpy()
+            sparsed_matrix = coo_matrix( (v, (i, j)), shape=size )
+            if load_full:
+                sparsed_matrix = sparsed_matrix.toarray()
+        else:
+            raise NameError("style must be 'tensor' or 'numpy'!")
+
+        return sparsed_matrix
+
+    def __init__(self, data_name: str, path=PATH, masked_uid=None, masked_iid=None, masked_vid=None):
         self.h5f = tb.open_file(path, 'r')
+        cur_group = self.h5f.root[data_name]
 
-        if load_full == False and subset_only == True:
-            raise ValueError("`subset_only` is only supported when `load_full=True`!")
-
-        uid_name = 'p_mask_uid'
-        if masked == 'partial':
-            prefix = 'p_mask_'
-        elif masked == 'full':
-            prefix = 'f_mask_' 
-        elif masked == 'no':
-            prefix = ''
-            
-        review_name, interact_name = prefix+'Review', prefix+'Interactions'
-        self.masked_uid_table = self.h5f.root[data_name][uid_name]
-        self.review_table = self.h5f.root[data_name][review_name]
-        self.interact_table = self.h5f.root[data_name][interact_name]
-
-        self.numIDs, self.numItems = self.interact_table.shape
-        self.interactions = None
-        self.reviewerIDs = None
-        self.review_embeddings = None
-        self.masked_uids = None
-        # self.conditional_vectors = torch.diag(torch.ones(self.numIDs, dtype=torch.int64))
-
-        if self.load_full:
-            self.interactions = self.hdfarray_to_tensor(self.interact_table)
-            self.reviewerIDs = self.get_reviewerIDs()
-            self.review_embeddings = self.get_userReviews()
-            self.masked_uids = self.get_masked_uids()
-
-            if self.subset_only:
-                self.numIDs = self.masked_uids.size()[0]
-                self.interactions = self.interactions[self.masked_uids]
-                self.reviewerIDs = [self.reviewerIDs[i] for i in self.masked_uids]
-                self.review_embeddings = self.review_embeddings[self.masked_uids]
-
-            self.h5f.close()
-
-    def get_reviewerID(self, idx) -> str:
-        if self.reviewerIDs is None:
-            return self.review_table[idx]['reviewerID'].decode('utf-8')
-
-        return self.reviewerIDs[idx]
-
-    def get_reviewerIDs(self) -> List[str]:
-        if self.reviewerIDs is None:
-            reviewerIDs = list(map(
-                lambda row: row['reviewerID'].decode('utf-8'),
-                self.review_table.iterrows()
-            ))
-            return reviewerIDs
-
-        return self.reviewerIDs
-
-    def get_userReviews(self) -> torch.Tensor:
-        if self.review_embeddings is None:
-            review_embeddings = torch.vstack(tuple(map(
-                lambda row: torch.from_numpy(row['reviewText']),
-                self.review_table.iterrows()
-            )))
-            return review_embeddings
-
-        return self.review_embeddings
-
-    def get_interactions(self, style='tensor') -> Union[torch.Tensor, np.ndarray]:
-        if self.interactions is None:
-            interactions = self.hdfarray_to_tensor(self.interact_table)
+        if masked_uid is not None:
+            self.userIdx = masked_uid
         else:
-            interactions = self.interactions
+            self.userIdx = self.hdfarray_to_tensor(cur_group['userIdx'])
 
-        if style == 'tensor':
-            return interactions.type(torch.float32)
-        elif style == 'numpy':
-            return interactions.numpy()
+        if masked_iid is not None:
+            self.itemIdx = masked_iid
         else:
-            raise NameError("style must be 'tensor' or 'numpy'!")
+            self.itemIdx = self.hdfarray_to_tensor(cur_group['itemIdx'])
+        
+        self.idx = torch.stack((self.userIdx, self.itemIdx), axis=0)
+
+        if masked_vid is not None:
+            self.rating    = self.hdfarray_to_tensor(cur_group['rating'])[masked_vid]
+            self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])[masked_vid]
+        else:
+            self.rating    = self.hdfarray_to_tensor(cur_group['rating'])
+            self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])
+
+        self.numIDs, self.numItems = int(torch.max(self.userIdx))+1, int(torch.max(self.itemIdx))+1
+        self.interactions = self.vec_to_sparse(
+            self.userIdx, self.itemIdx, self.rating,
+            size=(self.numIDs, self.numItems),
+            load_full=False,
+            style='tensor'
+        )
+        self.review_embeddings = self.vec_to_sparse(
+            self.userIdx, self.itemIdx, self.embedding,
+            size=(self.numIDs, self.numItems, self.embedding.shape[1]),
+            load_full=False,
+            style='tensor'
+        )
+
+        self.h5f.close()
     
-    def get_masked_uids(self, style='tensor') -> Union[torch.Tensor, np.ndarray]:
-        if self.masked_uids is None:
-            masked_uids = self.hdfarray_to_tensor(self.masked_uid_table)
-        else:
-            masked_uids = self.masked_uids
-
+    def get_indices(self, style='tensor') -> Union[torch.Tensor, np.ndarray]:
         if style == 'tensor':
-            return masked_uids
+            return self.idx
         elif style == 'numpy':
-            return masked_uids.numpy()
+            return np.stack((self.userIdx, self.itemIdx), axis=0)
         else:
             raise NameError("style must be 'tensor' or 'numpy'!")
+
+
+    def get_reviewEmbeddings(self, load_full=False) -> Union[torch.Tensor, coo_matrix, np.ndarray]:
+        if load_full:
+            self.review_embeddings.to_dense()
+        return self.review_embeddings       
+
+    def get_interactions(self, load_full=False, style='tensor') -> Union[torch.Tensor, coo_matrix, np.ndarray]:
+        if style == 'tensor':
+            if load_full:
+                return self.interactions.to_dense()
+            return self.interactions
+
+        return self.vec_to_sparse(self.userIdx, self.itemIdx, self.rating,
+                                  size=(self.numIDs, self.numItems),
+                                  load_full=load_full,
+                                  style=style)
+
+    def get_mask(self, drop_ratio: float, masked_uid=None, masked_iid=None) -> (torch.Tensor, torch.Tensor):
+        valid_mask = self.get_interactions(load_full=True) > 0
+        rand_mask = torch.rand(valid_mask.shape)
+        rand_mask[~valid_mask] = 0
+
+        ref_mask = None
+        if (masked_uid is not None) and (masked_iid is not None):
+            ref_mask = self.vec_to_sparse(
+                i=masked_uid, j=masked_iid, v=torch.ones(masked_uid.shape),
+                size=(self.numIDs, self.numItems), load_full=True
+            )>0
+
+        if ref_mask is None:
+            mask = rand_mask.ge(drop_ratio)
+        else:
+            ref_row_mask = torch.any(ref_mask, dim=1)
+            rand_mask[~ref_row_mask] = 0
+            mask = rand_mask.ge(drop_ratio)
+            mask = torch.logical_and(mask, ref_mask)
+        
+        # Sanity check for rows with all `False`
+        ill_masked_idx = ~torch.any(mask, dim=1)
+
+        # Unmask the ill-masked values
+        if ref_mask is None:
+            mask[ill_masked_idx] = valid_mask[ill_masked_idx]
+        else:
+            mask[ill_masked_idx] = ref_mask[ill_masked_idx]
+
+        print(f"Targeted drop ratio: {drop_ratio}")
+        print(f"Actual drop ratio: {(valid_mask.sum() - mask.sum()) / valid_mask.sum()}")
+        
+        masked_uid, masked_iid, = mask.to_sparse().indices()
+        masked_vid = mask[valid_mask]
+        return masked_uid, masked_iid, masked_vid
 
     def __len__(self) -> int:
         return self.numIDs
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.load_full:
-            user_reviews_embedding = self.review_embeddings[idx].type(torch.float32)
-            user_ratings = self.interactions[idx].type(torch.float32)
-        else:
-            user_reviews_embedding = torch.from_numpy(self.review_table[idx]['reviewText'].astype(np.float32))
-            user_ratings = torch.from_numpy(self.interact_table[idx].astype(np.float32))
-        # conditional_vector = self.conditional_vectors[idx]
+        user_reviews_embedding = self.review_embeddings[idx].coalesce().values().mean(dim=0)
+        user_ratings = self.interactions[idx].to_dense()
+
         return user_reviews_embedding, user_ratings, torch.tensor(idx)
 
 
 class ItemDataset(UserDataset):
-    def get_itemReviews(self, mask) -> torch.Tensor:
-        if self.review_embeddings is None:
-            idx = torch.masked_select(torch.arange(0, self.numIDs), mask)
-            item_reviews = self.review_table[idx.numpy()]['reviewText'][:,-1,:]
-            item_reviews_embedding = torch.from_numpy(
-                np.mean(item_reviews, axis=0, keepdims=True).astype(np.float32)
-            )
-        else:
-            item_reviews_embedding = torch.mean(
-                input=self.review_embeddings[mask],
-                dim=0,
-                keepdim=True,
-                dtype=torch.float32
-            )
+    """Implements Item Dataloader"""
+    PATH = os.path.join(DATASET_DIR, HDF5_DATASET)
 
-        return item_reviews_embedding
+    def __init__(self, data_name: str, path=PATH, masked_uid=None, masked_iid=None, masked_vid=None):
+        self.h5f = tb.open_file(path, 'r')
+        cur_group = self.h5f.root[data_name]
+
+        if masked_uid is not None:
+            self.userIdx = masked_uid
+        else:
+            self.userIdx = self.hdfarray_to_tensor(cur_group['userIdx'])
+
+        if masked_iid is not None:
+            self.itemIdx = masked_iid
+        else:
+            self.itemIdx = self.hdfarray_to_tensor(cur_group['itemIdx'])
+        
+        self.idx = torch.stack((self.itemIdx, self.userIdx), axis=0)
+
+        if masked_vid is not None:
+            self.rating    = self.hdfarray_to_tensor(cur_group['rating'])[masked_vid]
+            self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])[masked_vid]
+        else:
+            self.rating    = self.hdfarray_to_tensor(cur_group['rating'])
+            self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])
+
+        self.numIDs, self.numItems = int(torch.max(self.userIdx))+1, int(torch.max(self.itemIdx))+1
+        self.interactions = self.vec_to_sparse(
+            self.itemIdx, self.userIdx, self.rating,
+            size=(self.numItems, self.numIDs),
+            load_full=False,
+            style='tensor'
+        )
+        self.review_embeddings = self.vec_to_sparse(
+            self.itemIdx, self.userIdx, self.embedding,
+            size=(self.numItems, self.numIDs, self.embedding.shape[1]),
+            load_full=False,
+            style='tensor'
+        )
+
+        self.h5f.close()        
 
     def __len__(self) -> int:
         return self.numItems
-
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.load_full:
-            item_ratings = self.interactions[:, idx].type(torch.float32)
+    
+    def get_indices(self, style='tensor') -> Union[torch.Tensor, np.ndarray]:
+        if style == 'tensor':
+            return self.idx
+        elif style == 'numpy':
+            return np.stack((self.itemIdx, self.userIdx), axis=0)
         else:
-            item_ratings = torch.from_numpy(self.interact_table[:, idx].astype(np.float32))
+            raise NameError("style must be 'tensor' or 'numpy'!")
 
-        mask = item_ratings > 0
-        item_reviews_embedding = self.get_itemReviews(mask)
-
-        if torch.all(torch.isnan(item_reviews_embedding)):
-            item_reviews_embedding = torch.zeros(item_reviews_embedding.size())
-            print(f"Item #{idx} has no associated review embeddings available!")
-            print("Return a zero vector with the same dimension instead...")
-
-        return item_reviews_embedding, item_ratings, torch.tensor(idx)
+    def get_mask(self, drop_ratio: float, ref_mask=None) -> (torch.Tensor, torch.Tensor):
+        raise NotImplementedError("Please use `get_mask` in UserDataset.")
 
 
 if __name__ == '__main__':
     """
-    Example: Load data from the original and the masked dataset
+    0. Flags
+
+        load_full: bool 
+        if `load_full` is True, any function which takes this flag will return a full matrix
+        otherwise, it will return in the form of a spared matrix
+
+        style: ['tensor', 'numpy']
+        if `style` is `tensor`, the return value will be a torch.Tensor
+        if `style` is `numpy`, the return value will be a np.ndarray
     """
-    # Load the original dataset
-    user_dataset = UserDataset(data_name='food', load_full=True, masked='no')
-    # item_dataset = ItemDataset(data_name='food', load_full=True, masked=False)
-
-    # Load the masked dataset
-    masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='full')
-    
-    # or load partially masked dataset
-    # masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='partial')
-
-    # Get the indices of users who are masked
-    masked_uids = user_dataset.get_masked_uids(style='tensor')
-    # or equivalently
-    # masked_uids = masked_user_dataset.get_masked_uids(style='tensor')
-
-    # Get the interaction matrix directly from the dataset
-    interactions = user_dataset.get_interactions(style='tensor')
-    masked_interactions = masked_user_dataset.get_interactions(style='tensor')
-
-    # Get the mask of the masked ratings
-    from src.preprocessing.utils import get_item_mask
-    
-    item_mask = get_item_mask(interactions, masked_interactions)
-
-    # Now have a look at if we are getting the ratings we want
-    print("Ground Truths:")
-    print(f"size: {interactions[item_mask].size()}, non-zero: {torch.count_nonzero(interactions[item_mask])}")
-
-    print("Masked ratings (should be all 0s):")
-    print(f"sum: {masked_interactions[item_mask].sum()}")
 
 
     """
-    Example: Use Dataset to initialize a torch DataLoader
+    1. Load the unmodified dataset
+    """
+    user_dataset = UserDataset(data_name='food')
+
+    """
+    2. Access attributes within the Dataset object
+    """
+    # return indices for all valid entries within the dataset
+    # returned value will be a 2d-matrix, 
+    # with 1st row as row indices and 2nd row as col indices
+    indices = user_dataset.get_indices(style='tensor')
+    
+    # return all of the user review embeddings
+    embeddings = user_dataset.get_reviewEmbeddings(load_full=False)
+
+    # return the user-item Interactions
+    interactions = user_dataset.get_interactions(load_full=True, style='tensor')
+
+    # ...or you can access the dataset by index (through the getter function)
+    user_reviews_embedding, user_ratings, idx = user_dataset[0]
+
+    """
+    3. Create masks for training/validation/testing
+    """
+    # Since we can use the unmodified dataset for testing, we need two more masks
+    # for training and validation
+
+    # We can generate a masking using `get_mask`
+    # `drop_ratio` is the approximate percentage of rating/review we are dropping 
+    validation_uid, validation_iid, validation_vid = user_dataset.get_mask(drop_ratio=0.3)
+
+    # To get the masking for training set, we can use the previously generated masks to get
+    # a new set of masks with higher `drop_ratio`
+    training_uid, training_iid, training_vid = user_dataset.get_mask(
+        drop_ratio=0.6, masked_uid=validation_uid, masked_iid=validation_iid
+    )
+
+    # Once we get the user_idx (uid), item_idx (iid), value_idx (vid), we can create
+    # two new Dataset object using the masked ids.
+    training_dataset = UserDataset(
+        data_name='food',
+        masked_uid=training_uid,
+        masked_iid=training_iid,
+        masked_vid=training_vid
+    )
+
+    validation_dataset = UserDataset(
+        data_name='food',
+        masked_uid=validation_uid,
+        masked_iid=validation_iid,
+        masked_vid=validation_vid
+    )
+
+    """
+    4. Import Dataset object into a torch Dataloader
     """
     from torch.utils.data import DataLoader
 
-    fully_masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='full')
-    # partial_masked_user_dataset = UserDataset(data_name='food', load_full=True, masked='partial')
-    # unmasked_user_dataset = UserDataset(data_name='food', load_full=True, masked='no')
+    # In order to get data in batches, we can import our dataset into a torch dataloader
+    train_loader = DataLoader(training_dataset, batch_size=1, shuffle=True, num_workers=16)
+    val_loader = DataLoader(validation_dataset, batch_size=1, shuffle=True, num_workers=16)
+    test_loader = DataLoader(user_dataset, batch_size=1, shuffle=True, num_workers=16)
 
-    length = int(len(fully_masked_user_dataset) * 0.5)
-    train_set, val_set = torch.utils.data.random_split(fully_masked_user_dataset, [length, len(fully_masked_user_dataset) - length])
-    loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=0)
-    for i, batch in enumerate(loader):
-        if i < 1:
-            item_reviews_embedding, item_ratings = batch
-            print(f"item_reviews_embedding: {item_reviews_embedding.size()}")
-            print(item_reviews_embedding)
-            print(f"item_ratings: {item_ratings.size()}")
-            print(item_ratings)
-        else:
-            break
-    
-    length = int(len(user_dataset) * 0.5)
-    train_set, val_set = torch.utils.data.random_split(user_dataset, [length, len(user_dataset) - length])
-    loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=0)
-    for i, batch in enumerate(loader):
-        if i < 1:
-            user_reviews_embedding, user_ratings = batch
+    # Here is an example of how you can use the dataloader
+    for i, batch in enumerate(train_loader):
+        if i < 3:
+            user_reviews_embedding, user_ratings, idx = batch
             print(f"user_reviews_embedding: {user_reviews_embedding.size()}")
             print(user_reviews_embedding)
-            print(f"user_ratings: {user_ratings.size()}")
+            print(f"user_ratings: {user_ratings.size()}, # raings: {(user_ratings>0).sum()}")
             print(user_ratings)
+            print()
         else:
             break
