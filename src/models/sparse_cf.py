@@ -7,7 +7,7 @@ from tabulate import tabulate
 from scipy import sparse
 from surprise import SVD, Dataset, accuracy, Reader, Trainset
 from src.preprocessing.dataloader import UserDataset
-from src.models.sparse_mf import matrix_factorization, getPandR, MAE, RMSE, predict_with_surprise
+from src.models.sparse_mf import matrix_factorization, getPandR, MAE_and_RMSE, predict_with_surprise
 
 
 def run_MF(R):
@@ -48,20 +48,37 @@ def evalMF(masked_R, unmasked_R, ks, mask_coo):
     print_table(tab_data, error_labels)
 
 
-def eval_with_surprise(masked_df, unmasked_R, mask_coo, ks):
+def eval_with_surprise(masked_df, unmasked_R, mask_coo, mask_csr, ks):
     # train
+    print('factorizing...')
+    start = time.time()
     reader = Reader(rating_scale=(1, 5))
     train_data = Dataset.load_from_df(masked_df, reader)
     trainset = train_data.build_full_trainset()
     algo = SVD()
     algo.fit(trainset)
+    end = time.time()
+    print('done')
+    print('finished running in ', round(end-start), ' seconds')
+
+    # predict
+    print('predicting...')
+    start = time.time()
     predictions_csr = predict_with_surprise(unmasked_R.tocsr(), mask_coo, algo)
     predicted_R = sparse.coo_matrix(predictions_csr)
-    # eval
-    mask = mask_coo.toarray()
-    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, masked_R, predicted_R, unmasked_R, mask)
-    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R, mask)
-    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R, mask)
+    end = time.time()
+    print('done')
+    print('finished running in ', round(end-start), ' seconds')
+
+    # evaluate
+    print('predicting...')
+    start = time.time()
+    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, predicted_R, unmasked_R, mask_csr, mask_coo)
+    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo)
+    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo)
+    end = time.time()
+    print('done')
+    print('finished running in ', round(end-start), ' seconds')
 
     models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
     MAPs = [random_precisions, popular_precisions, MFprecisions]
@@ -197,9 +214,10 @@ if __name__ == "__main__":
     masked_df = pd.DataFrame(data={'userID': masked_R.row, 'itemID': masked_R.col, 'rating': masked_R.data})
     # unmasked_df = pd.DataFrame(data={'userID': unmasked_R.row, 'itemID': unmasked_R.col, 'rating': unmasked_R.data})
 
-    ks = [3, 5, 10]
-    # ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
+    # ks = [3, 5, 10]
+    ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
     # evalMF(masked_R, unmasked_R, ks, mask)
 
     mask_coo = sparse.coo_matrix(mask)
-    eval_with_surprise(masked_df, unmasked_R, mask_coo, ks)
+    mask_csr = mask_coo.tocsr()
+    eval_with_surprise(masked_df, unmasked_R, mask_coo, mask_csr, ks)
