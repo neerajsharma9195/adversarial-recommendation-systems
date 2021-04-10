@@ -57,10 +57,14 @@ def get_sentence_embedding(sentence):
 def get_review_embedding(review):
     """returns review embedding of size [1, 128]"""
     review_sentences = nltk_tokenize.sent_tokenize(review)
-    sentence_embeddings = map(get_sentence_embedding, review_sentences)
+    sentence_embeddings = list(map(get_sentence_embedding, review_sentences))
+    if len(sentence_embeddings) == 0:
+        print("Sentence_embeddings are empty!")
+        print(review)
+        return torch.zeros(1,128)
     if review_embedding_type == "avg":
         # avg over all pairs [pairs, 1, 128] => [1, 128]
-        mean = torch.mean(torch.stack(list(sentence_embeddings)), axis=0)
+        mean = torch.mean(torch.stack(sentence_embeddings), axis=0)
         return mean
 
 
