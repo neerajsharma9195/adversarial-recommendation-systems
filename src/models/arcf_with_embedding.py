@@ -40,8 +40,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
             g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, index_item = batch
-                rating_vector = rating_vector.to(device)
-                review_embedding = review_embedding.to(device)
+                rating_vector = rating_vector.type(torch.float32).to(device)
+                review_embedding = review_embedding.type(torch.float32).to(device)
                 real_missing_vector = torch.tensor((rating_vector > 0) * 1).to(device)
                 index_item = index_item.type(torch.long).to(device)
                 noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
