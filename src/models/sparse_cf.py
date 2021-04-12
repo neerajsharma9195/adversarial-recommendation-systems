@@ -7,49 +7,10 @@ from tabulate import tabulate
 from scipy import sparse
 from surprise import SVD, Dataset, accuracy, Reader, Trainset
 from src.preprocessing.dataloader import UserDataset
-from src.models.sparse_mf import matrix_factorization, getPandR, MAE_and_RMSE, predict_with_surprise
+from src.models.sparse_mf import getPandR, MAE_and_RMSE, predict_with_surprise, get_popularity_preds
 
 
-def run_MF(R):
-    N, M = R.shape
-    K = 500  # hidden dim
-
-    P = np.random.rand(N,K)
-    Q = np.random.rand(M,K)
-
-    print('factorizing...')
-    start = time.time()
-    nP, nQ = matrix_factorization(R, P, Q, K, steps=50000)
-    end = time.time()
-    print('done')
-    print('finished running in ', round(end-start), ' seconds')
-    return nP, nQ
-
-
-def evalMF(masked_R, unmasked_R, ks, mask_coo):
-    P, Q = run_MF(masked_R)
-    nR = np.dot(P, Q.T)
-    predicted_R = sparse.coo_matrix(nR)
-    mask_csr = mask_coo.tocsr()
-    
-    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, predicted_R, unmasked_R, mask_csr, mask_coo)
-    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo)
-    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo)
-
-    models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
-    MAPs = [random_precisions, popular_precisions, MFprecisions]
-    MARs = [random_recalls, popular_recalls, MFrecalls]
-    errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
-    os.makedirs('./results', exist_ok=True)
-    plot_MAP(MAPs, models, ks)
-    plot_MAR(MARs, models, ks)
-    error_labels = ['MAE', 'RMSE']
-    tab_data = [[models[i]] + errors[i] for i in range(len(models))]
-    print_table(tab_data, error_labels)
-
-
-def eval_with_surprise(masked_df, unmasked_R, mask_coo, mask_csr, ks):
-    # train
+def train(masked_df):
     print('factorizing...')
     start = time.time()
     reader = Reader(rating_scale=(1, 5))
@@ -60,22 +21,31 @@ def eval_with_surprise(masked_df, unmasked_R, mask_coo, mask_csr, ks):
     end = time.time()
     print('done')
     print('finished running in ', round(end-start), ' seconds')
+    return algo
 
-    # predict
+def predict(unmasked_R_coo, mask_coo, algo):
     print('predicting...')
     start = time.time()
-    predictions_csr = predict_with_surprise(unmasked_R.tocsr(), mask_coo, algo)
-    predicted_R = sparse.coo_matrix(predictions_csr)
+    predicted_R_csr = predict_with_surprise(unmasked_R_coo.tocsr(), mask_coo, algo)
     end = time.time()
     print('done')
     print('finished running in ', round(end-start), ' seconds')
+    return predicted_R_csr
+
+def eval_with_surprise(masked_df, unmasked_R_coo, mask_coo, mask_csr, ks):
+    # train
+    algo = train(masked_df)
+
+    # predict
+    predicted_R_csr = predict(unmasked_R_coo, mask_coo, algo)
+    predicted_R_coo = sparse.coo_matrix(predicted_R_csr)
 
     # evaluate
     print('predicting...')
     start = time.time()
-    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, predicted_R, unmasked_R, mask_csr, mask_coo)
-    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo)
-    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo)
+    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, predicted_R_coo, unmasked_R_coo, mask_csr, mask_coo)
+    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R, unmasked_R_coo, mask_csr, mask_coo)
+    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R, unmasked_R_coo, mask_csr, mask_coo)
     end = time.time()
     print('done')
     print('finished running in ', round(end-start), ' seconds')
@@ -94,47 +64,41 @@ def eval_with_surprise(masked_df, unmasked_R, mask_coo, mask_csr, ks):
 
 ############## Evaluation ###################
 
-def popularity_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo):
+def popularity_metrics(ks, masked_R, unmasked_R_coo, mask_csr, mask_coo):
     print('calculating popularity metrics...')
     num_users, num_items = masked_R.shape
     masked_R_csr = masked_R.tocsr()
-    # sum over all users
-    most_popular_items = masked_R_csr.sum(axis=0)
-    max_value = most_popular_items.max()
-    # normalize most popular items to be in the range (1,5)
-    most_popular_items = most_popular_items / max_value * 5
-    # predict the (same) normalized vetor for all users
-    pred_most_popular = np.tile(most_popular_items,(num_users,1))
-    # create masked predictions and ground truth
-    predictions = sparse.coo_matrix(np.multiply(pred_most_popular, mask_coo.toarray()))
-    predictions_csr, ground_truth_csr = predictions.tocsr(), unmasked_R.tocsr()
+    
+    predictions = get_popularity_preds(masked_R_csr, mask_coo)
+    predictions_csr = predictions_coo.tocsr()
+    ground_truth_csr = unmasked_R_coo.tocsr()
 
     precisions, recalls = getPandR(ks, predictions, predictions_csr, ground_truth_csr, mask_csr)
     mae, rmse = MAE_and_RMSE(predictions_csr, ground_truth_csr, mask_coo)
     print('done')
     return precisions, recalls, mae, rmse
 
-def random_metrics(ks, masked_R, unmasked_R, mask_csr, mask_coo):
+def random_metrics(ks, masked_R, unmasked_R_coo, mask_csr, mask_coo):
     print('calculating random metrics...')
-    predictions = sparse.coo_matrix(np.random.rand(*masked_R.shape) * 5 * mask_coo.toarray())
-    predictions_csr, ground_truth_csr = predictions.tocsr(), unmasked_R.tocsr()
+    predictions_coo = sparse.coo_matrix(np.random.rand(*masked_R.shape) * 5 * mask_coo.toarray())
+    predictions_csr = predictions_coo.tocsr()
+    ground_truth_csr = unmasked_R_coo.tocsr()
 
-    precisions, recalls = getPandR(ks, predictions, predictions_csr, ground_truth_csr, mask_csr)
+    precisions, recalls = getPandR(ks, predictions_coo, predictions_csr, ground_truth_csr, mask_csr)
     mae, rmse = MAE_and_RMSE(predictions_csr, ground_truth_csr, mask_coo)
     print('done')
     return precisions, recalls, mae, rmse
 
 
-def CF_metrics(ks, predicted_R, unmasked_R, mask_csr, mask_coo):
+def CF_metrics(ks, predicted_R, unmasked_R_coo, mask_csr, mask_coo):
     print('calculating CF metrics...')
-    predictions = sparse.coo_matrix(predicted_R.toarray() * mask_csr.toarray())
-    predictions_csr, ground_truth_csr = predictions.tocsr(), unmasked_R.tocsr()
+    predictions_coo = sparse.coo_matrix(predicted_R.toarray() * mask_csr.toarray())
+    predictions_csr, ground_truth_csr = predictions_coo.tocsr(), unmasked_R_coo.tocsr()
 
-    precisions, recalls = getPandR(ks, predictions, predictions_csr, ground_truth_csr, mask_csr)
+    precisions, recalls = getPandR(ks, predictions_coo, predictions_csr, ground_truth_csr, mask_csr)
     mae, rmse = MAE_and_RMSE(predictions_csr, ground_truth_csr, mask_coo)
     print('done')
     return precisions, recalls, mae, rmse
-
 
 def plot_MAP(MAPs, labels, ks):
     plt.figure(0)
@@ -208,16 +172,15 @@ if __name__ == "__main__":
     print('downloaded in ', round(end-start), ' seconds')
 
     mask = np.logical_xor(unmasked_R, masked_R)
-    masked_R = sparse.coo_matrix(masked_R)
-    unmasked_R = sparse.coo_matrix(unmasked_R)
-
-    masked_df = pd.DataFrame(data={'userID': masked_R.row, 'itemID': masked_R.col, 'rating': masked_R.data})
-    # unmasked_df = pd.DataFrame(data={'userID': unmasked_R.row, 'itemID': unmasked_R.col, 'rating': unmasked_R.data})
-
-    # ks = [3, 5, 10]
-    ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
-    # evalMF(masked_R, unmasked_R, ks, mask)
-
     mask_coo = sparse.coo_matrix(mask)
     mask_csr = mask_coo.tocsr()
-    eval_with_surprise(masked_df, unmasked_R, mask_coo, mask_csr, ks)
+    
+    masked_R = sparse.coo_matrix(masked_R)
+    unmasked_R_coo = sparse.coo_matrix(unmasked_R)
+
+    masked_df = pd.DataFrame(data={'userID': masked_R_coo.row, 'itemID': masked_R_coo.col, 'rating': masked_R_coo.data})
+    # unmasked_df = pd.DataFrame(data={'userID': unmasked_R.row, 'itemID': unmasked_R.col, 'rating': unmasked_R.data})
+
+    ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
+
+    eval_with_surprise(masked_df, unmasked_R_coo, mask_coo, mask_csr, ks)
