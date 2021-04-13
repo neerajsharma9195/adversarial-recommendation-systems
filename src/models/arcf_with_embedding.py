@@ -27,6 +27,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size,
           embedding_size=128,
           is_user=True, use_reviews=False, output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
+    torch.cuda.empty_cache()
     rating_generator.train()
     missing_generator.train()
     rating_discriminator.train()
@@ -55,7 +56,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                            review_embedding)
                 fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
                 g_loss = g_loss + torch.log(1. - fake_rating_results) + torch.log(1. - fake_missing_results)
-                rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing, rating_vector)
+                rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
                 if not is_user:
                     if i % 1000 == 0:
                         print("epoch {} g step {} processed {}".format(epoch, step, i))
