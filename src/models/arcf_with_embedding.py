@@ -71,6 +71,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     g_loss.backward(retain_graph=True)
                     rating_g_optimizer.step()
                     missing_g_optimizer.step()
+                    torch.cuda.empty_cache()
                     g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
@@ -123,6 +124,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     rating_d_optimizer.step()
                     missing_d_optimizer.step()
                     d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+                    torch.cuda.empty_cache()
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
@@ -130,6 +132,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             d_loss.backward(retain_graph=True)
             rating_d_optimizer.step()
             missing_d_optimizer.step()
+            torch.cuda.empty_cache()
         if is_user:
             wandb.log({
                 'epoch': epoch,
@@ -172,6 +175,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                            os.path.join(output_path, "{}_missing_discriminator_best.pt".format(path_name)))
             rating_generator.train()  # back to training mode
             missing_generator.train()
+        torch.cuda.empty_cache()
 
 
 def evaluate_cf(test_dataloader, rating_generator, missing_generator):
@@ -219,8 +223,8 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     wandb.watch(user_missing_generator)
     wandb.watch(user_rating_discriminator)
     wandb.watch(user_missing_discriminator)
-    g_step = 1
-    d_step = 1
+    g_step = 3
+    d_step = 4
     num_epochs = 200
     user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
