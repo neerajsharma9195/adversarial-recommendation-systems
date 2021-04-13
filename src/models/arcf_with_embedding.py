@@ -68,7 +68,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     rating_g_optimizer.zero_grad()
                     missing_g_optimizer.zero_grad()
                     epoch_g_loss += g_loss.data
-                    g_loss.backward(retain_graph=True)
+                    g_loss.backward()
                     rating_g_optimizer.step()
                     missing_g_optimizer.step()
                     torch.cuda.empty_cache()
@@ -77,7 +77,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
             epoch_g_loss += g_loss.data
-            g_loss.backward(retain_graph=True)
+            g_loss.backward()
             rating_g_optimizer.step()
             missing_g_optimizer.step()
             torch.cuda.empty_cache()
@@ -121,7 +121,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     rating_d_optimizer.zero_grad()
                     missing_d_optimizer.zero_grad()
                     epoch_d_loss += d_loss.data
-                    d_loss.backward(retain_graph=True)
+                    d_loss.backward()
                     rating_d_optimizer.step()
                     missing_d_optimizer.step()
                     d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
@@ -130,7 +130,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
             epoch_d_loss += d_loss.data
-            d_loss.backward(retain_graph=True)
+            d_loss.backward()
             rating_d_optimizer.step()
             missing_d_optimizer.step()
             torch.cuda.empty_cache()
