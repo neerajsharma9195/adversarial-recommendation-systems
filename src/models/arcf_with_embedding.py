@@ -227,10 +227,10 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     g_step = 3
     d_step = 4
     num_epochs = 200
-    user_rating_g_optimizer = torch.optim.SGD(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_rating_d_optimizer = torch.optim.SGD(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_missing_g_optimizer = torch.optim.SGD(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_missing_d_optimizer = torch.optim.SGD(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
     # todo: currently running experiments for a small dataset
     train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
           rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,
