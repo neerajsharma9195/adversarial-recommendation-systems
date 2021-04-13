@@ -44,8 +44,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 review_embedding = review_embedding.type(torch.float32).to(device)
                 real_missing_vector = torch.tensor((rating_vector > 0) * 1).to(device)
                 index_item = index_item.type(torch.long).to(device)
-                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
-                                            dtype=torch.float32).to(device)
+                noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
                 if not use_reviews:
                     review_embedding = None
                 fake_rating_vector = rating_generator(noise_vector, index_item, review_embedding)
@@ -64,6 +63,15 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 if i % 10000 == 0:
                     print("epoch {} g step {} processed {}".format(epoch, step, i))
 
+                if i % 100 == 0:
+                    g_loss = torch.mean(g_loss)
+                    rating_g_optimizer.zero_grad()
+                    missing_g_optimizer.zero_grad()
+                    epoch_g_loss += g_loss.data
+                    g_loss.backward(retain_graph=True)
+                    rating_g_optimizer.step()
+                    missing_g_optimizer.step()
+                    g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -80,8 +88,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 review_embedding = review_embedding.type(torch.float32).to(device)
                 real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).type(torch.float32).to(device)
                 index_item = index_item.type(torch.long).to(device)
-                noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
-                                            dtype=torch.float32).to(device)
+                noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
                 if not use_reviews:
                     review_embedding = None
                 fake_rating_vector = rating_generator(noise_vector, index_item, review_embedding)
@@ -107,6 +114,15 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 if i % 10000 == 0:
                     print("epoch {} d step {} processed {}".format(epoch, step, i))
 
+                if i % 100 == 0:
+                    d_loss = torch.mean(d_loss)
+                    rating_d_optimizer.zero_grad()
+                    missing_d_optimizer.zero_grad()
+                    epoch_d_loss += d_loss.data
+                    d_loss.backward(retain_graph=True)
+                    rating_d_optimizer.step()
+                    missing_d_optimizer.step()
+                    d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
