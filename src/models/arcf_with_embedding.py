@@ -37,13 +37,12 @@ def train(rating_generator, missing_generator, rating_discriminator,
         epoch_d_loss = 0
         rmse_rating_loss = 0
         for step in range(g_step):
-            g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+            g_loss = torch.tensor(0, dtype=torch.float32, device=device, requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, index_item = batch
-                rating_vector = rating_vector.type(torch.float32).to(device)
-                review_embedding = review_embedding.type(torch.float32).to(device)
-                real_missing_vector = torch.tensor((rating_vector > 0) * 1).to(device)
-                index_item = index_item.type(torch.long).to(device)
+                review_embedding = review_embedding.float().to(device)
+                real_missing_vector = torch.tensor((rating_vector > 0) * 1).float().to(device)
+                index_item = index_item.long().to(device)
                 noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
                 if not use_reviews:
                     review_embedding = None
@@ -72,7 +71,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     rating_g_optimizer.step()
                     missing_g_optimizer.step()
                     torch.cuda.empty_cache()
-                    g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+                    g_loss = torch.tensor(0, dtype=torch.float32, device=device, requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -80,15 +79,16 @@ def train(rating_generator, missing_generator, rating_discriminator,
             g_loss.backward(retain_graph=True)
             rating_g_optimizer.step()
             missing_g_optimizer.step()
+            torch.cuda.empty_cache()
 
         for step in range(d_step):
             d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, real_rating_vector, index_item = batch
-                real_rating_vector = real_rating_vector.type(torch.float32).to(device)
-                review_embedding = review_embedding.type(torch.float32).to(device)
-                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).type(torch.float32).to(device)
-                index_item = index_item.type(torch.long).to(device)
+                real_rating_vector = real_rating_vector.float().to(device)
+                review_embedding = review_embedding.float().to(device)
+                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).float().to(device)
+                index_item = index_item.long().to(device)
                 noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
                 if not use_reviews:
                     review_embedding = None
@@ -226,10 +226,10 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     g_step = 3
     d_step = 4
     num_epochs = 200
-    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_g_optimizer = torch.optim.SGD(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_d_optimizer = torch.optim.SGD(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_g_optimizer = torch.optim.SGD(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_d_optimizer = torch.optim.SGD(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
     # todo: currently running experiments for a small dataset
     train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
           rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,
