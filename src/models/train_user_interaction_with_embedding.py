@@ -28,9 +28,9 @@ validation_dataset = UserDataset(
     path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5'
 )
 
-train_loader = DataLoader(training_dataset, batch_size=10, shuffle=True, num_workers=16)
-val_loader = DataLoader(validation_dataset, batch_size=10, shuffle=True, num_workers=16)
-test_loader = DataLoader(user_dataset, batch_size=10, shuffle=True, num_workers=16)
+train_loader = DataLoader(training_dataset, batch_size=1, shuffle=True, num_workers=16)
+val_loader = DataLoader(validation_dataset, batch_size=1, shuffle=True, num_workers=16)
+test_loader = DataLoader(user_dataset, batch_size=1, shuffle=True, num_workers=16)
 
 # Here is an example of how you can use the dataloader
 for i, batch in enumerate(train_loader):
