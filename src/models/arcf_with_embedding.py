@@ -38,7 +38,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
         epoch_d_loss = 0
         rmse_rating_loss = 0
         for step in range(g_step):
-            g_loss = torch.tensor(0, dtype=torch.float32, device=device, requires_grad=True)
+            g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, index_item = batch
                 review_embedding = review_embedding.float().to(device)
@@ -56,23 +56,13 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                            review_embedding)
                 fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
                 g_loss = g_loss + torch.log(1. - fake_rating_results) + torch.log(1. - fake_missing_results)
-                rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
+                rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing, rating_vector.to(device))
                 if not is_user:
                     if i % 1000 == 0:
                         print("epoch {} g step {} processed {}".format(epoch, step, i))
                 if i % 10000 == 0:
-                    print("epoch {} g step {} processed {}".format(epoch, step, i))
+                    print("epoch {} g step {} processed {} rmse loss {}".format(epoch, step, i, rmse_rating_loss))
 
-                if i % 100 == 0:
-                    g_loss = torch.mean(g_loss)
-                    rating_g_optimizer.zero_grad()
-                    missing_g_optimizer.zero_grad()
-                    epoch_g_loss += g_loss.data
-                    g_loss.backward()
-                    rating_g_optimizer.step()
-                    missing_g_optimizer.step()
-                    torch.cuda.empty_cache()
-                    g_loss = torch.tensor(0, dtype=torch.float32, device=device, requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -115,17 +105,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
 
                 if i % 10000 == 0:
                     print("epoch {} d step {} processed {}".format(epoch, step, i))
-
-                if i % 100 == 0:
-                    d_loss = torch.mean(d_loss)
-                    rating_d_optimizer.zero_grad()
-                    missing_d_optimizer.zero_grad()
-                    epoch_d_loss += d_loss.data
-                    d_loss.backward()
-                    rating_d_optimizer.step()
-                    missing_d_optimizer.step()
-                    d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
-                    torch.cuda.empty_cache()
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
@@ -158,24 +137,24 @@ def train(rating_generator, missing_generator, rating_discriminator,
         torch.save(missing_discriminator.state_dict(),
                    os.path.join(output_path, "{}_missing_discriminator_epoch_{}.pt".format(path_name, epoch)))
 
-        if epoch % 20 == 0:
-            performance = evaluate_cf(test_dataloader, rating_generator, missing_generator)
-            wandb.log({
-                "epoch": epoch,
-                "cf_performance": performance  # todo: update CF performance
-            })
-            if performance > best_performance:
-                best_performance = performance
-                torch.save(rating_generator.state_dict(),
-                           os.path.join(output_path, "{}_rating_generator_best.pt".format(path_name)))
-                torch.save(missing_generator.state_dict(),
-                           os.path.join(output_path, "{}_missing_generator_best.pt".format(path_name)))
-                torch.save(rating_discriminator.state_dict(),
-                           os.path.join(output_path, "{}_rating_discriminator_best.pt".format(path_name)))
-                torch.save(missing_discriminator.state_dict(),
-                           os.path.join(output_path, "{}_missing_discriminator_best.pt".format(path_name)))
-            rating_generator.train()  # back to training mode
-            missing_generator.train()
+        # if epoch % 20 == 0:
+        #     performance = evaluate_cf(test_dataloader, rating_generator, missing_generator)
+        #     wandb.log({
+        #         "epoch": epoch,
+        #         "cf_performance": performance  # todo: update CF performance
+        #     })
+        #     if performance > best_performance:
+        #         best_performance = performance
+        #         torch.save(rating_generator.state_dict(),
+        #                    os.path.join(output_path, "{}_rating_generator_best.pt".format(path_name)))
+        #         torch.save(missing_generator.state_dict(),
+        #                    os.path.join(output_path, "{}_missing_generator_best.pt".format(path_name)))
+        #         torch.save(rating_discriminator.state_dict(),
+        #                    os.path.join(output_path, "{}_rating_discriminator_best.pt".format(path_name)))
+        #         torch.save(missing_discriminator.state_dict(),
+        #                    os.path.join(output_path, "{}_missing_discriminator_best.pt".format(path_name)))
+        #     rating_generator.train()  # back to training mode
+        #     missing_generator.train()
         torch.cuda.empty_cache()
 
 
