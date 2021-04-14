@@ -8,7 +8,7 @@ manualSeed = 42
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-user_dataset = UserDataset(data_name='food', path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5')
+user_dataset = UserDataset(data_name='food')
 validation_uid, validation_iid, validation_vid = user_dataset.get_mask(drop_ratio=0.3)
 training_uid, training_iid, training_vid = user_dataset.get_mask(drop_ratio=0.6, masked_uid=validation_uid, masked_iid=validation_iid)
 
@@ -16,8 +16,7 @@ training_dataset = UserDataset(
     data_name='food',
     masked_uid=training_uid,
     masked_iid=training_iid,
-    masked_vid=training_vid,
-    path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5'
+    masked_vid=training_vid
 )
 
 validation_dataset = UserDataset(
@@ -25,7 +24,6 @@ validation_dataset = UserDataset(
     masked_uid=validation_uid,
     masked_iid=validation_iid,
     masked_vid=validation_vid,
-    path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5'
 )
 
 train_loader = DataLoader(training_dataset, batch_size=1, shuffle=True, num_workers=16)
@@ -65,4 +63,4 @@ noise_size = 128
 train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=val_loader,
               num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
               review_embedding_size=128, use_reviews=True,
-              output_path='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results')
+              output_path='/mnt/nfs/scratch1/neerajsharma/model_params/complete_data_results')

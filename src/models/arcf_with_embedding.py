@@ -9,7 +9,7 @@ import wandb
 
 # 1. Start a new run
 # todo: change name from small experiments to complete experiments
-wandb.init(project="adversarial-recommendation-with-embedding-small-experiments")
+wandb.init(project="adversarial-recommendation-with-embedding-complete-data")
 
 # 2. Save model inputs and hyperparameters
 config = wandb.config
@@ -26,7 +26,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
           rating_d_optimizer, missing_d_optimizer,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size,
           embedding_size=128,
-          is_user=True, use_reviews=False, output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
+          is_user=True, use_reviews=False, batch_size=100, output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
     torch.cuda.empty_cache()
     rating_generator.train()
     missing_generator.train()
@@ -37,6 +37,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
+        epoch_rmse_loss = 0
         for step in range(g_step):
             g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             rmse_rating_loss = 0
@@ -71,6 +72,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     rating_g_optimizer.zero_grad()
                     missing_g_optimizer.zero_grad()
                     epoch_g_loss += g_loss.data
+                    epoch_rmse_loss += rmse_rating_loss
                     g_loss.backward()
                     rating_g_optimizer.step()
                     missing_g_optimizer.step()
@@ -79,6 +81,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
             epoch_g_loss += g_loss.data
+            epoch_rmse_loss += rmse_rating_loss
             g_loss.backward()
             rating_g_optimizer.step()
             missing_g_optimizer.step()
@@ -118,7 +121,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 if i % 10000 == 0:
                     print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
 
-                if i % 100 == 0:
+                if i % batch_size == 0:
                     d_loss = torch.mean(d_loss)
                     rating_d_optimizer.zero_grad()
                     missing_d_optimizer.zero_grad()
@@ -140,7 +143,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 'epoch': epoch,
                 'user_generator_loss': epoch_g_loss,
                 'user_discriminator_loss': epoch_d_loss,
-                'rmse_generator_loss': rmse_rating_loss
+                'rmse_generator_loss': epoch_rmse_loss
             })
         else:
             wandb.log({
@@ -228,10 +231,10 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     g_step = 3
     d_step = 2
     num_epochs = 200
-    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
-    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.001, weight_decay=0.001)
+    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.001, weight_decay=0.001)
+    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.001, weight_decay=0.001)
+    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.001, weight_decay=0.001)
     # todo: currently running experiments for a small dataset
     train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
           rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,
@@ -240,7 +243,7 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
           train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
           epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items,
           noise_size=noise_size, is_user=True, use_reviews=use_reviews,
-          output_path=output_path)
+          output_path=output_path, batch_size=500)
 
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
