@@ -36,9 +36,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
-        rmse_rating_loss = 0
         for step in range(g_step):
             g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+            rmse_rating_loss = 0
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, index_item = batch
                 review_embedding = review_embedding.float().to(device)
@@ -61,7 +61,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     if i % 1000 == 0:
                         print("epoch {} g step {} processed {}".format(epoch, step, i))
                 if i % 10000 == 0:
-                    print("epoch {} g step {} processed {} rmse loss {}".format(epoch, step, i, rmse_rating_loss))
+                    print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i, rmse_rating_loss, epoch_g_loss))
 
                 if i % 100 == 0:
                     g_loss = torch.mean(g_loss)
@@ -71,7 +71,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     g_loss.backward()
                     rating_g_optimizer.step()
                     missing_g_optimizer.step()
-                    torch.cuda.empty_cache()
                     g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
@@ -80,7 +79,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
             g_loss.backward()
             rating_g_optimizer.step()
             missing_g_optimizer.step()
-            torch.cuda.empty_cache()
 
         for step in range(d_step):
             d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
@@ -114,7 +112,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                         print("epoch {} d step {} processed {}".format(epoch, step, i))
 
                 if i % 10000 == 0:
-                    print("epoch {} d step {} processed {}".format(epoch, step, i))
+                    print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
 
                 if i % 100 == 0:
                     d_loss = torch.mean(d_loss)
@@ -124,7 +122,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     d_loss.backward()
                     rating_d_optimizer.step()
                     missing_d_optimizer.step()
-                    torch.cuda.empty_cache()
                     d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
@@ -133,7 +130,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
             d_loss.backward()
             rating_d_optimizer.step()
             missing_d_optimizer.step()
-            torch.cuda.empty_cache()
 
         if is_user:
             wandb.log({
