@@ -63,6 +63,16 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 if i % 10000 == 0:
                     print("epoch {} g step {} processed {} rmse loss {}".format(epoch, step, i, rmse_rating_loss))
 
+                if i % 100 == 0:
+                    g_loss = torch.mean(g_loss)
+                    rating_g_optimizer.zero_grad()
+                    missing_g_optimizer.zero_grad()
+                    epoch_g_loss += g_loss.data
+                    g_loss.backward()
+                    rating_g_optimizer.step()
+                    missing_g_optimizer.step()
+                    torch.cuda.empty_cache()
+                    g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -105,6 +115,17 @@ def train(rating_generator, missing_generator, rating_discriminator,
 
                 if i % 10000 == 0:
                     print("epoch {} d step {} processed {}".format(epoch, step, i))
+
+                if i % 100 == 0:
+                    d_loss = torch.mean(d_loss)
+                    rating_d_optimizer.zero_grad()
+                    missing_d_optimizer.zero_grad()
+                    epoch_d_loss += d_loss.data
+                    d_loss.backward()
+                    rating_d_optimizer.step()
+                    missing_d_optimizer.step()
+                    torch.cuda.empty_cache()
+                    d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
@@ -113,6 +134,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
             rating_d_optimizer.step()
             missing_d_optimizer.step()
             torch.cuda.empty_cache()
+
         if is_user:
             wandb.log({
                 'epoch': epoch,
