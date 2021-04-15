@@ -26,7 +26,7 @@ def trainSVD(trainset):
     end = time.time()
     print('done')
     print('finished running in ', round(end-start), ' seconds')
-    return algo
+    return algozz
 
 def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
     # setup
