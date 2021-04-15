@@ -9,7 +9,6 @@ from surprise import Dataset, accuracy, Reader, Trainset, SVD, NormalPredictor, 
 from src.preprocessing.dataloader import UserDataset
 from src.models.sparse_mf import get_P_and_R, predict
 
-
 def setup(masked_R_coo, unmasked_vals_coo):
     print('make df')
     start = time.time()
@@ -33,51 +32,45 @@ def get_train_and_test_sets(masked_df, unmasked_df):
     testset = train_data.construct_testset(test_data.raw_ratings)
     return trainset, testset
 
-def train(trainset, algo, name):
-    print('training ', name, '...', end='')
-    start = time.time()
-    algo.fit(trainset)
-    end = time.time()
-    print('done. finished running in ', round(end-start), ' seconds')
-    return algo
+class Model():
+    def __init__(self, name, algo):
+        self.name = name
+        self.algo = algo
+
+    def train(self, trainset):
+        print('training ', self.name, '...', end='')
+        start = time.time()
+        self.algo.fit(trainset)
+        end = time.time()
+        print('done in ', round(end-start), ' seconds')
+
+    def predict(self, testset):
+        self.predictions = self.algo.test(testset)
+
+    def evaluate(self):
+        self.mae = accuracy.mae(self.predictions)
+        self.rmse = accuracy.rmse(self.predictions)
+
 
 def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
-    # setup
     trainset, testset = setup(masked_R_coo, unmasked_vals_coo)
+    models = [
+        Model(name='random', algo=NormalPredictor()),
+        Model(name='SGD', algo=BaselineOnly(bsl_options = {'method': 'sgd','learning_rate': .00005,})),
+        Model(name='SVD', algo=SVD()),
+        # Model(name='KNN', algo=KNNBasic())
+        ]
     
-    # train
-    SVD_algo = train(trainset, SVD(), 'SVD')
-    random_algo = train(trainset, NormalPredictor(), 'random')
-    SGD_algo = train(trainset, BaselineOnly(bsl_options = {'method': 'sgd','learning_rate': .00005,}), 'SGD')
+    for model in models:
+        model.train(trainset)
+        model.predict(testset)
+        model.evaluate()
 
-    # predict
-    SVD_predictions = SVD_algo.test(testset)
-    random_predictions = random_algo.test(testset)
-    SGD_predictions = SGD_algo.test(testset)
-
-    # evaluate
-    print('random')
-    random_mae = accuracy.mae(random_predictions)
-    random_rmse = accuracy.rmse(random_predictions)
-    
-    print('SGD')
-    sgd_mae = accuracy.mae(SGD_predictions)
-    sgd_rmse = accuracy.rmse(SGD_predictions)
-    
-    print('SVD')
-    svd_mae = accuracy.mae(SVD_predictions)
-    svd_rmse = accuracy.rmse(SVD_predictions)
-
-    # KNN_predictions = KNN_algo.test(testset)
-    # KNN_algo = train(trainset, KNNBasic(), 'KNN')
-    # accuracy.mae(KNN_predictions)
-    # accuracy.rmse(KNN_predictions)
-
-    models=['random', 'SGD', 'SVD']
-    errors = [[random_mae, random_rmse], [sgd_mae, sgd_rmse], [svd_mae, svd_rmse]]
+    labels = [model.name for model in models]
+    errors = [[model.mae, model.rmse] for model in models]
     MAPs, MARs = [], []
     
-    show_and_save(models, errors, MAPs, MARs, ks)
+    show_and_save(labels, errors, MAPs, MARs, ks)
 
 def show_and_save(models, errors, MAPs, MARs, ks):
     os.makedirs('results', exist_ok=True)
