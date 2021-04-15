@@ -7,15 +7,20 @@ from tabulate import tabulate
 from scipy import sparse
 from surprise import SVD, Dataset, accuracy, Reader, Trainset
 from src.preprocessing.dataloader import UserDataset
-from src.models.sparse_mf import getPandR, MAE_and_RMSE, predict_with_surprise, get_popularity_preds
+from src.models.sparse_mf import get_P_and_R, predict
 
 
-def train(masked_df):
-    print('factorizing...')
-    start = time.time()
+def get_train_and_test_sets(masked_df, unmasked_df):
     reader = Reader(rating_scale=(1, 5))
     train_data = Dataset.load_from_df(masked_df, reader)
+    test_data = Dataset.load_from_df(unmasked_df, reader)
     trainset = train_data.build_full_trainset()
+    testset = train_data.construct_testset(test_data.raw_ratings)
+    return trainset, testset
+
+def trainSVD(trainset):
+    print('factorizing...')
+    start = time.time()
     algo = SVD()
     algo.fit(trainset)
     end = time.time()
@@ -23,40 +28,69 @@ def train(masked_df):
     print('finished running in ', round(end-start), ' seconds')
     return algo
 
-def predict(mask_coo, algo):
-    print('predicting...')
+def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
+    # setup
+    # print('setup...')
+    print('make df')
     start = time.time()
-    predicted_R_csr = predict_with_surprise(mask_coo, algo)
+    masked_df = pd.DataFrame(data={'userID': masked_R_coo.row, 'itemID': masked_R_coo.col, 'rating': masked_R_coo.data})
+    unmasked_df = pd.DataFrame(data={'userID': unmasked_vals_coo.row, 'itemID': unmasked_vals_coo.col, 'rating': unmasked_vals_coo.data})
+    end = time.time()
+    print('done in ', round(end-start), ' seconds')
+    print('make train and test sets')
+    start = time.time()
+    trainset, testset = get_train_and_test_sets(masked_df, unmasked_df)
+    # ground_truth_csr = unmasked_vals_coo.tocsr()
+    end = time.time()
+    print('done in ', round(end-start), ' seconds')
+    # print('done')
+    # print('setup finished in ', round(end-start), ' seconds')
+
+    
+    # train
+    print('training...')
+    start = time.time()
+    SVD_algo = trainSVD(trainset)
     end = time.time()
     print('done')
-    print('finished running in ', round(end-start), ' seconds')
-    return predicted_R_csr
+    print('training finished in ', round(end-start), ' seconds')
 
-def eval(masked_R_coo, unmasked_R_coo, mask_coo, mask_csr, ks):
-    # train
-    masked_df = pd.DataFrame(data={'userID': masked_R_coo.row, 'itemID': masked_R_coo.col, 'rating': masked_R_coo.data})
-    algo = train(masked_df)
 
     # predict
-    predicted_R_csr = predict(mask_coo, algo)
-    predicted_R_coo = sparse.coo_matrix(predicted_R_csr)
+    # SVD_predictions = SVD_algo.test(testset)
+    # for i in range(len(SVD_predictions)):
+    #     print(SVD_predictions[i])
+    # accuracy.mae(SVD_predictions)
+    # accuracy.rmse(SVD_predictions)
+    print('predicting...')
+    start = time.time()
+    unmasked_vals_csr = unmasked_vals_coo.tocsr()
+
+    algo.test(testset)
+
+    # U, I = algo.pu, algo.qi # get_latent_matrices(SVD_algo)
+    # predicted_R = np.dot(U, I.T) 
+    # print(U.shape, I.shape, predicted_R.shape)
+
+    # SVD_predictions = predict(unmasked_vals_coo, unmasked_vals_csr, SVD_algo)
+    # for i, j in zip(unmasked_vals_coo.row, unmasked_vals_coo.col):
+    #     print(SVD_predictions[i,j])
+
+    print('done')
+    print('predicting finished in ', round(end-start), ' seconds')
+
 
     # evaluate
-    print('evaluating...')
-    start = time.time()
-    ground_truth_csr = unmasked_R_coo.tocsr()
-    MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, predicted_R_coo, unmasked_R_coo, ground_truth_csr, mask_csr, mask_coo)
-    popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R_coo, unmasked_R_coo, ground_truth_csr, mask_csr, mask_coo)
-    random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R_coo, unmasked_R_coo, ground_truth_csr, mask_csr, mask_coo)
-    end = time.time()
-    print('done')
-    print('finished running in ', round(end-start), ' seconds')
+    # MFprecisions, MFrecalls, MFmae, MFrmse = CF_metrics(ks, predicted_R_coo, unmasked_vals_coo, ground_truth_csr, mask_csr, mask_coo)
+    # popular_precisions, popular_recalls, popular_mae, popular_rmse = popularity_metrics(ks, masked_R_coo, unmasked_vals_coo, ground_truth_csr, mask_csr, mask_coo)
+    # random_precisions, random_recalls, random_mae, random_rmse = random_metrics(ks, masked_R_coo, unmasked_vals_coo, ground_truth_csr, mask_csr, mask_coo)
 
-    # shoq and save results
-    models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
-    MAPs = [random_precisions, popular_precisions, MFprecisions]
-    MARs = [random_recalls, popular_recalls, MFrecalls]
-    errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
+def show_and_save(models, MAPs, MARs, errors, ks):
+    # show and save results
+    # models = ['Random Recommender', 'Popularity Recommender', 'Collaborative Filter']
+    # MAPs = [random_precisions, popular_precisions, MFprecisions]
+    # MARs = [random_recalls, popular_recalls, MFrecalls]
+    # errors = [[random_mae, random_rmse], [popular_mae, popular_rmse], [MFmae, MFrmse]]
     os.makedirs('results', exist_ok=True)
     plot_MAP(MAPs, models, ks)
     plot_MAR(MARs, models, ks)
@@ -67,8 +101,9 @@ def eval(masked_R_coo, unmasked_R_coo, mask_coo, mask_csr, ks):
 
 ############## Evaluation ###################
 
-def popularity_metrics(ks, masked_R_coo, unmasked_R_coo, ground_truth_csr, mask_csr, mask_coo):
-    print('calculating popularity metrics...')    
+def popularity_metrics(ks, masked_R_coo, unmasked_vals_coo, ground_truth_csr, mask_csr, mask_coo):
+    print('calculating popularity metrics...') 
+    # algo = surprise.prediction_algorithms.random_pred.NormalPredictor
     predictions_csr = get_popularity_preds(masked_R_coo, mask_coo)
     predictions_coo = sparse.coo_matrix(predictions_csr)
     precisions, recalls = getPandR(ks, predictions_coo, predictions_csr, ground_truth_csr, mask_csr)
@@ -76,8 +111,9 @@ def popularity_metrics(ks, masked_R_coo, unmasked_R_coo, ground_truth_csr, mask_
     print('done')
     return precisions, recalls, mae, rmse
 
-def random_metrics(ks, masked_R_coo, unmasked_R_coo, ground_truth_csr, mask_csr, mask_coo):
+def random_metrics(ks, masked_R_coo, unmasked_vals_coo, ground_truth_csr, mask_csr, mask_coo):
     print('calculating random metrics...')
+    # algo = surprise.prediction_algorithms.baseline_only.BaselineOnly
     predictions_coo = sparse.coo_matrix(np.random.rand(*masked_R_coo.shape) * 5 * mask_coo.toarray())
     predictions_csr = predictions_coo.tocsr()
     precisions, recalls = getPandR(ks, predictions_coo, predictions_csr, ground_truth_csr, mask_csr)
@@ -86,7 +122,7 @@ def random_metrics(ks, masked_R_coo, unmasked_R_coo, ground_truth_csr, mask_csr,
     return precisions, recalls, mae, rmse
 
 
-def CF_metrics(ks, predicted_R, unmasked_R_coo, ground_truth_csr, mask_csr, mask_coo):
+def CF_metrics(ks, predicted_R, unmasked_vals_coo, ground_truth_csr, mask_csr, mask_coo):
     print('calculating CF metrics...')
     predictions_coo = sparse.coo_matrix(predicted_R.toarray() * mask_csr.toarray())
     predictions_csr = predictions_coo.tocsr()
@@ -124,6 +160,9 @@ def print_table(tab_data, labels):
     with open(filename, 'w') as f:
         print(table, file=f)
 
+def logical_xor(a, b):
+    return (a>b)+(a<b)
+
 
 ##############################################
 
@@ -155,24 +194,41 @@ if __name__ == "__main__":
      [0.,2.,0.,0.],
     ])
 
+    # print('loading the data...')
+    # start = time.time()
+    # user_dataset = UserDataset(data_name='food', path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5')
+    # validation_uid, validation_iid, validation_vid = user_dataset.get_mask(drop_ratio=0.3)
+    # training_uid, training_iid, training_vid = user_dataset.get_mask(
+    #     drop_ratio=0.6, masked_uid=validation_uid, masked_iid=validation_iid
+    # )
+    # train_dataset = UserDataset(
+    #     data_name='food',
+    #     path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5',
+    #     masked_uid=training_uid,
+    #     masked_iid=training_iid,
+    #     masked_vid=training_vid
+    # )
+    # validation_dataset = UserDataset(
+    #     data_name='food',
+    #     path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5',
+    #     masked_uid=validation_uid,
+    #     masked_iid=validation_iid,
+    #     masked_vid=validation_vid
+    # )
+    # masked_R = train_dataset.get_interactions(style="numpy")
+    # unmasked_R = validation_dataset.get_interactions(style="numpy")
+    # end = time.time()
+    # print('done')
+    # print('downloaded in ', round(end-start), ' seconds')
 
-    print('loading the data...')
-    start = time.time()
-    train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
-    val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial')
-    masked_R = train_dataset.get_interactions(style="numpy")
-    unmasked_R = val_dataset.get_interactions(style="numpy")
-    end = time.time()
-    print('done')
-    print('downloaded in ', round(end-start), ' seconds')
-
-    mask = np.logical_xor(unmasked_R, masked_R)
-    mask_coo = sparse.coo_matrix(mask)
-    mask_csr = mask_coo.tocsr()
-    
     masked_R_coo = sparse.coo_matrix(masked_R)
     unmasked_R_coo = sparse.coo_matrix(unmasked_R)
 
+    mask_csr = logical_xor(unmasked_R_coo.astype('bool'), masked_R_coo.astype('bool'))
+    mask_coo = sparse.coo_matrix(mask_csr)
+    
+    unmasked_vals_coo = sparse.coo_matrix(unmasked_R_coo.multiply(mask_coo))
+
     ks = [3, 5, 10, 20, 30, 40, 50, 75, 100]
 
-    eval(masked_R_coo, unmasked_R_coo, mask_coo, mask_csr, ks)
+    run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks)
