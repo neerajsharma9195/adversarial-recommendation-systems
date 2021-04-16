@@ -128,7 +128,6 @@ def setup(masked_R_coo, unmasked_vals_coo):
     print('make train and test sets')
     start = time.time()
     trainset, testset = get_train_and_test_sets(masked_df, unmasked_df)
-    # ground_truth_csr = unmasked_vals_coo.tocsr()
     end = time.time()
     print('done in ', round(end-start), ' seconds')
     return trainset, testset

@@ -1,6 +1,7 @@
 import time
 import numpy as np
 from scipy import sparse
+from multiprocessing import Pool
 from surprise import accuracy, SVD, NormalPredictor, KNNBasic, BaselineOnly
 from src.models.cf_utils import *
 
@@ -24,7 +25,13 @@ class Model():
         self.rmse = accuracy.rmse(self.predictions)
         self.MAPs = []
         self.MARs = []
-        
+
+def run_model(model, trainset, testset):
+    model.train(trainset)
+    model.predict(testset)
+    model.evaluate()
+    return model
+
 
 def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
     trainset, testset = setup(masked_R_coo, unmasked_vals_coo)
@@ -34,11 +41,10 @@ def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
         Model(name='SVD', algo=SVD()),
         # Model(name='KNN', algo=KNNBasic())
         ]
-    
-    for model in models:
-        model.train(trainset)
-        model.predict(testset)
-        model.evaluate()
+
+    args = [(model, trainset, testset) for model in models]
+    with Pool() as pool:
+        models = pool.starmap(run_model, args)
     
     show_and_save(models, ks)
 
