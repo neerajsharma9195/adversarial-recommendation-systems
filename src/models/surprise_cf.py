@@ -16,7 +16,7 @@ class Model():
         start = time.time()
         self.algo.fit(trainset)
         end = time.time()
-        print('done training ', self.name, ' in ', round(end-start), ' seconds')
+        print('done in ', round(end-start), 'seconds')
     
     def predict(self, testset):
         self.predictions = self.algo.test(testset)
@@ -29,7 +29,7 @@ class Model():
         precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
         self.MAPs, self.MARs = zip(*precisions_and_recalls)
         end = time.time()
-        print('done evaluating ', self.name, ' in ', round(end-start), ' seconds')
+        print('done in ', round(end-start), 'seconds')
 
 def run_model(model, trainset, testset):
     model.train(trainset)

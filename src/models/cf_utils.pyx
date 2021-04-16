@@ -1,3 +1,4 @@
+# cython: language_level=3
 import os
 import time
 import progressbar
@@ -9,6 +10,7 @@ from surprise import Dataset, accuracy, Reader, Trainset
 from collections import defaultdict
 from tabulate import tabulate
 from src.preprocessing.dataloader import UserDataset
+
 
 #################################################################
 #                           Evaluation                          #
@@ -126,17 +128,14 @@ def logical_xor(a, b):
     return (a>b)+(a<b)
 
 def setup(masked_R_coo, unmasked_vals_coo):
-    print('make df')
+    print('make train and test sets...', end='')
     start = time.time()
     masked_df = pd.DataFrame(data={'userID': masked_R_coo.row, 'itemID': masked_R_coo.col, 'rating': masked_R_coo.data})
     unmasked_df = pd.DataFrame(data={'userID': unmasked_vals_coo.row, 'itemID': unmasked_vals_coo.col, 'rating': unmasked_vals_coo.data})
-    end = time.time()
-    print('done in ', round(end-start), ' seconds')
-    print('make train and test sets')
     start = time.time()
     trainset, testset = get_train_and_test_sets(masked_df, unmasked_df)
     end = time.time()
-    print('done in ', round(end-start), ' seconds')
+    print('done in {} seconds'.format(round(end-start)))
     return trainset, testset
 
 def get_train_and_test_sets(masked_df, unmasked_df):
@@ -148,7 +147,7 @@ def get_train_and_test_sets(masked_df, unmasked_df):
     return trainset, testset
 
 def get_data_from_dataloader():
-    print('loading the data...')
+    print('loading the data...', end='')
     start = time.time()
     user_dataset = UserDataset(data_name='food', path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5')
     validation_uid, validation_iid, validation_vid = user_dataset.get_mask(drop_ratio=0.3)
@@ -172,8 +171,7 @@ def get_data_from_dataloader():
     masked_R = train_dataset.get_interactions(style="numpy")
     unmasked_R = validation_dataset.get_interactions(style="numpy")
     end = time.time()
-    print('done')
-    print('downloaded in ', round(end-start), ' seconds')
+    print('downloaded in {} seconds'.format(round(end-start)))
 
     return masked_R, unmasked_R
 
