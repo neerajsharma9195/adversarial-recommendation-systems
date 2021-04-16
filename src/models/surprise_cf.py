@@ -37,7 +37,6 @@ def run_model(model, trainset, testset):
     model.evaluate()
     return model
 
-
 def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
     trainset, testset = setup(masked_R_coo, unmasked_vals_coo)
     models = [
