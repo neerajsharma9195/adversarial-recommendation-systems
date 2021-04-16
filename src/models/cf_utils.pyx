@@ -186,26 +186,15 @@ def get_train_and_test_sets(masked_df, unmasked_df, unmasked_cold_df):
 def get_data_from_dataloader():
     print('loading the data...', end='')
     start = time.time()
-    user_dataset = UserDataset(data_name='food', path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5')
-    validation_uid, validation_iid, validation_vid = user_dataset.get_mask(drop_ratio=0.3)
-    training_uid, training_iid, training_vid = user_dataset.get_mask(
-        drop_ratio=0.6, masked_uid=validation_uid, masked_iid=validation_iid
-    )
-    train_dataset = UserDataset(
+    training_dataset = UserDataset(
         data_name='food',
-        path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5',
-        masked_uid=training_uid,
-        masked_iid=training_iid,
-        masked_vid=training_vid
+        mode='train'
     )
     validation_dataset = UserDataset(
         data_name='food',
-        path='/mnt/nfs/scratch1/neerajsharma/amazon_data/new_5_dataset.h5',
-        masked_uid=validation_uid,
-        masked_iid=validation_iid,
-        masked_vid=validation_vid
+        mode='val'
     )
-    masked_R = train_dataset.get_interactions(style="numpy")
+    masked_R = training_dataset.get_interactions(style="numpy")
     unmasked_R = validation_dataset.get_interactions(style="numpy")
     end = time.time()
     print('downloaded in {} seconds'.format(round(end-start)))
