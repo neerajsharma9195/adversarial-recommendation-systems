@@ -23,7 +23,7 @@ def review_data_triming(df: pd.DataFrame, min_item_reviews: int, min_user_review
         regex=True,
         inplace=True
     )
-    df = df[df['reviewText'].notnull() | (df['reviewText'] == "  ") | (df['reviewText'] == " ") ]
+    df = df[df['reviewText'].notnull()]
 
     # Drop if one user has multiple reviews over one product    
     df = df.drop_duplicates(subset=['reviewerID', 'asin'], keep='last')
@@ -271,6 +271,6 @@ def save_dataset(data_name: str, dataset=None, agg_func=get_review_embedding,
 if __name__ == '__main__':
     save_dataset(
         data_name='food', agg_func=get_review_embedding,
-        dir=DATASET_DIR, hdf5_name=HDF5_DATASET,
-        min_item_reviews=100, min_user_reviews=3, embedding_size=128
+        dir=DATASET_DIR, hdf5_name='new_5_dataset.h5',
+        min_item_reviews=100, min_user_reviews=5, embedding_size=128
     )

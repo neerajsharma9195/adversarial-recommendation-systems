@@ -8,7 +8,7 @@ import pandas as pd
 DATASET_DIR = "/mnt/nfs/scratch1/neerajsharma/amazon_data/"
 META_PREFIX = "meta_"
 REVIEW_PREFIX = "review_"
-HDF5_DATASET = "new_dataset.h5"
+HDF5_DATASET = "new_5_dataset.h5"
 DATASET_NAME = {
     'phone': 'Cell_Phones_and_Accessories.json.gz',
     'beauty': 'All_Beauty.json.gz',                     # haven't downloaded yet
