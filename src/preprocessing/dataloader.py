@@ -11,6 +11,8 @@ from typing import Union, List, Tuple
 class UserDataset(torch.utils.data.Dataset):
     """Implements User Dataloader"""
     PATH = os.path.join(DATASET_DIR, HDF5_DATASET)
+    VAL_PREFIX = 'validation_'
+    TRAIN_PREFIX = 'training_'
 
     @staticmethod
     def hdfarray_to_numpy(hdfarray: tb.CArray):
@@ -23,7 +25,7 @@ class UserDataset(torch.utils.data.Dataset):
         return torch.from_numpy(hdfarray[:])
 
     @staticmethod
-    def vec_to_sparse(i: np.ndarray, j: np.ndarray, v: np.ndarray,
+    def vec_to_sparse(i: torch.tensor, j: torch.tensor, v: torch.tensor,
                       size=None, load_full=False, style='tensor') -> Union[torch.Tensor, coo_matrix, np.ndarray]:
         if style == 'tensor':
             idx = torch.stack((i, j), axis=0)
@@ -43,29 +45,46 @@ class UserDataset(torch.utils.data.Dataset):
 
         return sparsed_matrix
 
-    def __init__(self, data_name: str, path=PATH, masked_uid=None, masked_iid=None, masked_vid=None):
+    def __init__(self, data_name: str, path=PATH, masked_uid=None, masked_iid=None, masked_vid=None, mode='full'):
+        self.path = path
+        self.mode = mode
+        self.data_name = data_name
         self.h5f = tb.open_file(path, 'r')
         cur_group = self.h5f.root[data_name]
 
-        if masked_uid is not None:
-            self.userIdx = masked_uid
-        else:
-            self.userIdx = self.hdfarray_to_tensor(cur_group['userIdx'])
+        mask_prefix = None
+        if self.mode == 'val':
+            mask_prefix = UserDataset.VAL_PREFIX
+        elif self.mode == 'train':
+            mask_prefix = UserDataset.TRAIN_PREFIX
+        elif self.mode != 'full':
+            raise ValueError(f'Supported mode: {self.mode}')
 
-        if masked_iid is not None:
-            self.itemIdx = masked_iid
+        if mask_prefix is not None:
+            self.userIdx = self.hdfarray_to_tensor(cur_group[mask_prefix+'masked_uid'])
+            self.itemIdx = self.hdfarray_to_tensor(cur_group[mask_prefix+'masked_iid'])
+            masked_vid = self.hdfarray_to_tensor(cur_group[mask_prefix+'masked_vid'])
         else:
-            self.itemIdx = self.hdfarray_to_tensor(cur_group['itemIdx'])
-        
-        self.idx = torch.stack((self.userIdx, self.itemIdx), axis=0)
+            if masked_uid is not None:
+                self.userIdx = masked_uid
+            else:
+                self.userIdx = self.hdfarray_to_tensor(cur_group['userIdx'])
 
+            if masked_iid is not None:
+                self.itemIdx = masked_iid
+            else:
+                self.itemIdx = self.hdfarray_to_tensor(cur_group['itemIdx'])
+            
         if masked_vid is not None:
+            self.masked_vid = masked_vid
             self.rating    = self.hdfarray_to_tensor(cur_group['rating'])[masked_vid]
             self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])[masked_vid]
         else:
+            self.masked_vid = None
             self.rating    = self.hdfarray_to_tensor(cur_group['rating'])
             self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])
 
+        self.idx = torch.stack((self.userIdx, self.itemIdx), axis=0)
         self.numIDs, self.numItems = int(torch.max(self.userIdx))+1, int(torch.max(self.itemIdx))+1
         self.interactions = self.vec_to_sparse(
             self.userIdx, self.itemIdx, self.rating,
@@ -107,7 +126,7 @@ class UserDataset(torch.utils.data.Dataset):
                                   load_full=load_full,
                                   style=style)
 
-    def get_mask(self, drop_ratio: float, masked_uid=None, masked_iid=None) -> (torch.Tensor, torch.Tensor):
+    def get_mask(self, drop_ratio: float, masked_uid=None, masked_iid=None) -> (torch.Tensor, torch.Tensor, torch.Tensor):
         valid_mask = self.get_interactions(load_full=True) > 0
         rand_mask = torch.rand(valid_mask.shape)
         rand_mask[~valid_mask] = 0
@@ -142,6 +161,26 @@ class UserDataset(torch.utils.data.Dataset):
         masked_uid, masked_iid, = mask.to_sparse().indices()
         masked_vid = mask[valid_mask]
         return masked_uid, masked_iid, masked_vid
+    
+    def save_mask(self, masked_uid: torch.Tensor, masked_iid: torch.Tensor, masked_vid: torch.Tensor, mode: str):
+        if self.masked_vid is not None:
+            raise TypeError("You should save your masks from the unmasked dataset!")
+        
+        if mode == 'val':
+            prefix = UserDataset.VAL_PREFIX
+        elif mode == 'train':
+            prefix = UserDataset.TRAIN_PREFIX
+        else:
+            raise ValueError(f"Supported mode: {mode}")
+
+        self.h5f = tb.open_file(self.path, 'a')
+        cur_group = self.h5f.root[self.data_name]
+        filters = tb.Filters(complib='zlib', complevel=5)
+        self.h5f.create_carray(cur_group, prefix+'masked_uid', obj=masked_uid.numpy(), filters=filters)
+        self.h5f.create_carray(cur_group, prefix+'masked_iid', obj=masked_iid.numpy(), filters=filters)
+        self.h5f.create_carray(cur_group, prefix+'masked_vid', obj=masked_vid.numpy(), filters=filters)
+        print(self.h5f)
+        self.h5f.close()
 
     def __len__(self) -> int:
         return self.numIDs
@@ -156,30 +195,49 @@ class UserDataset(torch.utils.data.Dataset):
 class ItemDataset(UserDataset):
     """Implements Item Dataloader"""
     PATH = os.path.join(DATASET_DIR, HDF5_DATASET)
+    VAL_PREFIX = 'validation_'
+    TRAIN_PREFIX = 'training_'
 
-    def __init__(self, data_name: str, path=PATH, masked_uid=None, masked_iid=None, masked_vid=None):
+    def __init__(self, data_name: str, path=PATH, masked_uid=None, masked_iid=None, masked_vid=None, mode='full'):
+        self.path = path
+        self.mode = mode
+        self.data_name = data_name
         self.h5f = tb.open_file(path, 'r')
         cur_group = self.h5f.root[data_name]
 
-        if masked_uid is not None:
-            self.userIdx = masked_uid
-        else:
-            self.userIdx = self.hdfarray_to_tensor(cur_group['userIdx'])
+        mask_prefix = None
+        if self.mode == 'val':
+            mask_prefix = ItemDataset.VAL_PREFIX
+        elif self.mode == 'train':
+            mask_prefix = ItemDataset.TRAIN_PREFIX
+        elif self.mode != 'full':
+            raise ValueError(f'Supported mode: {self.mode}')
 
-        if masked_iid is not None:
-            self.itemIdx = masked_iid
+        if mask_prefix is not None:
+            self.userIdx = self.hdfarray_to_tensor(cur_group[mask_prefix+'masked_uid'])
+            self.itemIdx = self.hdfarray_to_tensor(cur_group[mask_prefix+'masked_iid'])
+            masked_vid = self.hdfarray_to_tensor(cur_group[mask_prefix+'masked_vid'])
         else:
-            self.itemIdx = self.hdfarray_to_tensor(cur_group['itemIdx'])
+            if masked_uid is not None:
+                self.userIdx = masked_uid
+            else:
+                self.userIdx = self.hdfarray_to_tensor(cur_group['userIdx'])
+
+            if masked_iid is not None:
+                self.itemIdx = masked_iid
+            else:
+                self.itemIdx = self.hdfarray_to_tensor(cur_group['itemIdx'])
         
-        self.idx = torch.stack((self.itemIdx, self.userIdx), axis=0)
-
         if masked_vid is not None:
+            self.masked_vid = masked_vid
             self.rating    = self.hdfarray_to_tensor(cur_group['rating'])[masked_vid]
             self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])[masked_vid]
         else:
+            self.masked_vid = None
             self.rating    = self.hdfarray_to_tensor(cur_group['rating'])
             self.embedding = self.hdfarray_to_tensor(cur_group['embedding'])
 
+        self.idx = torch.stack((self.itemIdx, self.userIdx), axis=0)
         self.numIDs, self.numItems = int(torch.max(self.userIdx))+1, int(torch.max(self.itemIdx))+1
         self.interactions = self.vec_to_sparse(
             self.itemIdx, self.userIdx, self.rating,
@@ -209,6 +267,9 @@ class ItemDataset(UserDataset):
 
     def get_mask(self, drop_ratio: float, ref_mask=None) -> (torch.Tensor, torch.Tensor):
         raise NotImplementedError("Please use `get_mask` in UserDataset.")
+    
+    def save_mask(self, masked_uid: torch.Tensor, masked_iid: torch.Tensor, masked_vid: torch.Tensor, prefix: str):
+        raise NotImplementedError("Please use `save_mask` in UserDataset.")
 
 
 if __name__ == '__main__':
@@ -254,17 +315,28 @@ if __name__ == '__main__':
     # for training and validation
 
     # We can generate a masking using `get_mask`
-    # `drop_ratio` is the approximate percentage of rating/review we are dropping 
+    # `drop_ratio` is the approximate percentage of rating/review we are dropping
+    """
     validation_uid, validation_iid, validation_vid = user_dataset.get_mask(drop_ratio=0.3)
+    """
 
     # To get the masking for training set, we can use the previously generated masks to get
     # a new set of masks with higher `drop_ratio`
+    """
     training_uid, training_iid, training_vid = user_dataset.get_mask(
         drop_ratio=0.6, masked_uid=validation_uid, masked_iid=validation_iid
     )
+    """
+
+    # To save the generated mask into the h4 dataset, use the `save_mask` method:
+    """
+    user_dataset.save_mask(validation_uid, validation_iid, validation_vid, valset_prefix, mode='val')
+    user_dataset.save_mask(training_uid, training_iid, training_vid, trainset_prefix, mode='train')
+    """
 
     # Once we get the user_idx (uid), item_idx (iid), value_idx (vid), we can create
     # two new Dataset object using the masked ids.
+    """
     training_dataset = UserDataset(
         data_name='food',
         masked_uid=training_uid,
@@ -277,6 +349,17 @@ if __name__ == '__main__':
         masked_uid=validation_uid,
         masked_iid=validation_iid,
         masked_vid=validation_vid
+    )
+    """
+
+    # ...or we can use the preprocessed masks to get training and validation set:
+    training_dataset = UserDataset(
+        data_name='food',
+        mode='train'
+    )
+    validation_dataset = UserDataset(
+        data_name='food',
+        mode='val'
     )
 
     """
