@@ -6,9 +6,10 @@ from surprise import accuracy, SVD, NormalPredictor, KNNBasic, BaselineOnly
 from src.models.cf_utils import *
 
 class Model():
-    def __init__(self, name, algo):
+    def __init__(self, name, algo, ks):
         self.name = name
         self.algo = algo
+        self.ks = ks
 
     def train(self, trainset):
         print('training ', self.name, '...', end='')
@@ -23,8 +24,8 @@ class Model():
     def evaluate(self):
         self.mae = accuracy.mae(self.predictions)
         self.rmse = accuracy.rmse(self.predictions)
-        self.MAPs = []
-        self.MARs = []
+        precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
+        self.MAPs, self.MARs = zip(*precisions_and_recalls)
 
 def run_model(model, trainset, testset):
     model.train(trainset)
@@ -36,9 +37,9 @@ def run_model(model, trainset, testset):
 def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
     trainset, testset = setup(masked_R_coo, unmasked_vals_coo)
     models = [
-        Model(name='random', algo=NormalPredictor()),
-        Model(name='SGD', algo=BaselineOnly(bsl_options = {'method': 'sgd','learning_rate': .00005,})),
-        Model(name='SVD', algo=SVD()),
+        Model(name='random', algo=NormalPredictor(), ks=ks),
+        Model(name='SGD', algo=BaselineOnly(bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
+        Model(name='SVD', algo=SVD(), ks=ks),
         # Model(name='KNN', algo=KNNBasic())
         ]
 
@@ -46,7 +47,7 @@ def run(masked_R_coo, unmasked_vals_coo, mask_coo, mask_csr, ks):
     with Pool() as pool:
         models = pool.starmap(run_model, args)
     
-    show_and_save(models, ks)
+    show_and_save(models)
 
 
 if __name__ == "__main__":

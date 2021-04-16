@@ -27,14 +27,15 @@ def get_top_n(predictions, n=10):
 
     return top_n
 
-def precision_recall_at_k(predictions, k=10, threshold=3.5):
-    """Return precision and recall at k metrics for each user"""
+def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
+    """Return precision and recall at k metrics for each user (or average over all users)"""
 
     # First map the predictions to each user.
     user_est_true = defaultdict(list)
     for uid, _, true_r, est, _ in predictions:
         user_est_true[uid].append((est, true_r))
 
+    P, R = 0, 0
     precisions = dict()
     recalls = dict()
     for uid, user_ratings in user_est_true.items():
@@ -54,30 +55,36 @@ def precision_recall_at_k(predictions, k=10, threshold=3.5):
 
         # Precision@K: Proportion of recommended items that are relevant
         # When n_rec_k is 0, Precision is undefined. We here set it to 0.
-
         precisions[uid] = n_rel_and_rec_k / n_rec_k if n_rec_k != 0 else 0
-
+        P += n_rel_and_rec_k / n_rec_k if n_rec_k != 0 else 0
+        
         # Recall@K: Proportion of relevant items that are recommended
         # When n_rel is 0, Recall is undefined. We here set it to 0.
-
         recalls[uid] = n_rel_and_rec_k / n_rel if n_rel != 0 else 0
+        R += recalls[uid]
 
-    return precisions, recalls
+    P /= len(user_est_true.items())
+    R /= len(user_est_true.items())
+    if avg == False:
+        return precisions, recalls 
+    else:
+        return P, R
 
 
 #################################################################
 #                   Printing and Plotting                       #
 #################################################################
 
-def show_and_save(models, ks):
+def show_and_save(models):
+    ks = models[0].ks
     labels = [model.name for model in models]
     errors = [[model.mae, model.rmse] for model in models]
-    # MAPs = [model.MAPs for model in models]
-    # MARs = [model.MARs for model in models]
+    MAPs = [model.MAPs for model in models]
+    MARs = [model.MARs for model in models]
 
     os.makedirs('results', exist_ok=True)
-    # plot_MAP(MAPs, labels, ks)
-    # plot_MAR(MARs, labels, ks)
+    plot_MAP(MAPs, labels, ks)
+    plot_MAR(MARs, labels, ks)
     error_labels = ['MAE', 'RMSE']
     tab_data = [[labels[i]] + errors[i] for i in range(len(labels))]
     print_table(tab_data, error_labels)
