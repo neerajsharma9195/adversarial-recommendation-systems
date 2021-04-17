@@ -9,10 +9,7 @@ import wandb
 
 # 1. Start a new run
 # todo: change name from small experiments to complete experiments
-wandb.init(project="adversarial-recommendation-with-embedding-complete-data")
 
-# 2. Save model inputs and hyperparameters
-config = wandb.config
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -25,7 +22,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
           missing_discriminator, rating_g_optimizer, missing_g_optimizer,
           rating_d_optimizer, missing_d_optimizer,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size,
-          embedding_size=128,
+          wandb_obj, embedding_size=128,
           is_user=True, use_reviews=False, batch_size=100,
           output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
     torch.cuda.empty_cache()
@@ -63,8 +60,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 if not is_user:
                     if i % 1000 == 0:
                         print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
-                                                                                          rmse_rating_loss,
-                                                                                          epoch_g_loss))
+                                                                                              rmse_rating_loss,
+                                                                                              epoch_g_loss))
                 if i % 10000 == 0:
                     print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
                                                                                           rmse_rating_loss,
@@ -142,14 +139,14 @@ def train(rating_generator, missing_generator, rating_discriminator,
             missing_d_optimizer.step()
 
         if is_user:
-            wandb.log({
+            wandb_obj.log({
                 'epoch': epoch,
                 'user_generator_loss': epoch_g_loss,
                 'user_discriminator_loss': epoch_d_loss,
                 'rmse_generator_loss': epoch_rmse_loss
             })
         else:
-            wandb.log({
+            wandb_obj.log({
                 'epoch': epoch,
                 'item_generator_loss': epoch_g_loss,
                 'item_discriminator_loss': epoch_d_loss,
@@ -190,25 +187,11 @@ def train(rating_generator, missing_generator, rating_discriminator,
 def evaluate_cf(test_dataloader, rating_generator, missing_generator):
     missing_generator.eval()
     rating_generator.eval()
-    # mask test data
-    # print(len(test_dataloader.dataset))
-    # for i, batch in enumerate(test_dataloader):
-    #     review_embedding, rating_vector, index_item = batch
-    #     print('rating vec = ', rating_vector)
-    #     print([(i, rating_vector[i]) for i in rating_vector if rating_vector[i] != 0])
-    # generate augmented users & items
-    # make CF matrix
-    # compare predictions with masks
-    # calculate & return:
-    #   precision, recall, nDCG(?) MRR(?)
-    # precision = true positives / true positives and false positives
-    # recall = true positives / true positives and false negatives
-    # MAE = 1/N sumN |x_i - x|
     return 0
 
 
 def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
-                  noise_size, num_items, review_embedding_size=128,
+                  noise_size, num_items, wandb_project_name, review_embedding_size=128,
                   use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results'):
     user_rating_generator = Generator(num_inputs=num_users, input_size=noise_size, item_count=num_items,
                                       c_embedding_size=user_embedding_dim,
@@ -228,6 +211,7 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
                                                rating_dense_representation_size=review_embedding_size,
                                                review_embedding_size=review_embedding_size,
                                                use_reviews=use_reviews).to(device)
+    wandb.init(project=wandb_project_name)
     wandb.watch(user_rating_generator)
     wandb.watch(user_missing_generator)
     wandb.watch(user_rating_discriminator)
@@ -247,11 +231,11 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
           train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
           epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items,
           noise_size=noise_size, is_user=True, use_reviews=use_reviews,
-          output_path=output_path, batch_size=500)
+          output_path=output_path, wandb_obj=wandb, batch_size=100)
 
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
-                  noise_size, num_items, review_embedding_size=128,
+                  noise_size, num_items, wandb_project_name, review_embedding_size=128,
                   use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/'):
     item_rating_generator = Generator(num_inputs=num_items, input_size=noise_size,
                                       item_count=num_users,
@@ -272,12 +256,13 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
                                                rating_dense_representation_size=review_embedding_size,
                                                review_embedding_size=review_embedding_size,
                                                use_reviews=use_reviews).to(device)
+    wandb.init(project=wandb_project_name)
     wandb.watch(item_rating_generator)
     wandb.watch(item_missing_generator)
     wandb.watch(item_rating_discriminator)
     wandb.watch(item_missing_discriminator)
-    g_step = 2
-    d_step = 2
+    g_step = 1
+    d_step = 1
     num_epochs = 200
     item_rating_g_optimizer = torch.optim.Adam(item_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     item_rating_d_optimizer = torch.optim.Adam(item_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
@@ -290,4 +275,4 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
           rating_d_optimizer=item_rating_d_optimizer, missing_d_optimizer=item_missing_d_optimizer,
           train_dataloader=item_train_dataloader, test_dataloader=item_test_dataloader, epochs=num_epochs,
           g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False,
-          use_reviews=use_reviews, output_path=output_path, batch_size=500)
+          use_reviews=use_reviews, output_path=output_path, wandb_obj=wandb, batch_size=100)

@@ -18,8 +18,10 @@ print("train numItems {}".format(numItems))
 
 user_embedding_dim = 128
 noise_size = 128
+WANDB_PROJECT_NAME = 'adversarial-recommendation-with-embedding-small-experiments'
 
 train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=None,
               num_users=numUsers, user_embedding_dim=user_embedding_dim, noise_size=noise_size, num_items=numItems,
               review_embedding_size=128, use_reviews=True,
-              output_path='/mnt/nfs/scratch1/neerajsharma/model_params/complete_data_results')
+              output_path='/mnt/nfs/scratch1/neerajsharma/model_params/complete_data_results',
+              wandb_project_name=WANDB_PROJECT_NAME)
