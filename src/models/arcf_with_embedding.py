@@ -26,7 +26,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
           rating_d_optimizer, missing_d_optimizer,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size,
           embedding_size=128,
-          is_user=True, use_reviews=False, batch_size=100, output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
+          is_user=True, use_reviews=False, batch_size=100,
+          output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
     torch.cuda.empty_cache()
     rating_generator.train()
     missing_generator.train()
@@ -61,7 +62,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
                 if not is_user:
                     if i % 1000 == 0:
-                        print("epoch {} g step {} processed {}".format(epoch, step, i))
+                        print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
+                                                                                          rmse_rating_loss,
+                                                                                          epoch_g_loss))
                 if i % 10000 == 0:
                     print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
                                                                                           rmse_rating_loss,
@@ -116,7 +119,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
 
                 if not is_user:
                     if i % 1000 == 0:
-                        print("epoch {} d step {} processed {}".format(epoch, step, i))
+                        print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
 
                 if i % 10000 == 0:
                     print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
@@ -149,7 +152,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
             wandb.log({
                 'epoch': epoch,
                 'item_generator_loss': epoch_g_loss,
-                'item_discriminator_loss': epoch_d_loss
+                'item_discriminator_loss': epoch_d_loss,
+                'rmse_item_generator_loss': epoch_rmse_loss
             })
         path_name = "users" if is_user else "items"
 
@@ -248,47 +252,33 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
-                  use_reviews=False):
-    if use_reviews:
-        item_rating_generator = Generator(input_size=noise_size, item_count=num_users,
-                                          c_embedding_size=item_embedding_dim,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
-            device)
-        item_missing_generator = Generator(input_size=noise_size, item_count=num_users,
-                                           c_embedding_size=item_embedding_dim,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
-            device)
-        item_rating_discriminator = Discriminator(input_size=review_embedding_size, c_embedding_size=item_embedding_dim,
-                                                  review_embedding_size=review_embedding_size,
-                                                  use_reviews=use_reviews).to(device)
-        item_missing_discriminator = Discriminator(input_size=review_embedding_size,
-                                                   c_embedding_size=item_embedding_dim,
-                                                   review_embedding_size=review_embedding_size,
-                                                   use_reviews=use_reviews).to(device)
-    else:
-        item_rating_generator = Generator(input_size=noise_size, item_count=num_users,
-                                          c_embedding_size=item_embedding_dim,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
-            device)
-        item_missing_generator = Generator(input_size=noise_size, item_count=num_users,
-                                           c_embedding_size=item_embedding_dim,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
-            device)
-        item_rating_discriminator = Discriminator(input_size=review_embedding_size, c_embedding_size=item_embedding_dim,
-                                                  review_embedding_size=review_embedding_size,
-                                                  use_reviews=use_reviews).to(device)
-        item_missing_discriminator = Discriminator(input_size=review_embedding_size,
-                                                   c_embedding_size=item_embedding_dim,
-                                                   review_embedding_size=review_embedding_size,
-                                                   use_reviews=use_reviews).to(device)
-
+                  use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/'):
+    item_rating_generator = Generator(num_inputs=num_items, input_size=noise_size,
+                                      item_count=num_users,
+                                      c_embedding_size=item_embedding_dim,
+                                      review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
+        device)
+    item_missing_generator = Generator(num_inputs=num_items, input_size=noise_size, item_count=num_users,
+                                       c_embedding_size=item_embedding_dim,
+                                       review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
+        device)
+    item_rating_discriminator = Discriminator(num_inputs=num_items, input_size=num_users,
+                                              c_embedding_size=item_embedding_dim,
+                                              review_embedding_size=review_embedding_size,
+                                              rating_dense_representation_size=review_embedding_size,
+                                              use_reviews=use_reviews).to(device)
+    item_missing_discriminator = Discriminator(num_inputs=num_items, input_size=num_users,
+                                               c_embedding_size=item_embedding_dim,
+                                               rating_dense_representation_size=review_embedding_size,
+                                               review_embedding_size=review_embedding_size,
+                                               use_reviews=use_reviews).to(device)
     wandb.watch(item_rating_generator)
     wandb.watch(item_missing_generator)
     wandb.watch(item_rating_discriminator)
     wandb.watch(item_missing_discriminator)
     g_step = 2
     d_step = 2
-    num_epochs = 100
+    num_epochs = 200
     item_rating_g_optimizer = torch.optim.Adam(item_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     item_rating_d_optimizer = torch.optim.Adam(item_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
     item_missing_g_optimizer = torch.optim.Adam(item_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
@@ -300,4 +290,4 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
           rating_d_optimizer=item_rating_d_optimizer, missing_d_optimizer=item_missing_d_optimizer,
           train_dataloader=item_train_dataloader, test_dataloader=item_test_dataloader, epochs=num_epochs,
           g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False,
-          use_reviews=use_reviews)
+          use_reviews=use_reviews, output_path=output_path, batch_size=500)
