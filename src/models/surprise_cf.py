@@ -53,9 +53,9 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     models = [
         Model(name='random', algo=NormalPredictor(), ks=ks),
-        Model(name='SGD', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
-        # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
+        Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
         Model(name='SVD', algo=SVD(verbose=False), ks=ks),
+        # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]
 
     args = [(model, trainset, testset, cold_testset) for model in models]

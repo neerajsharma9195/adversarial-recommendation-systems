@@ -154,6 +154,7 @@ def logical_xor(a, b):
 def only_cold_start(masked_R_coo, unmasked_vals_coo):
     nnzs = masked_R_coo.getnnz(axis=1)
     warm_users = nnzs > 2
+    print('num users total = ', len(nnzs))
     print('num cold start users = ', len(nnzs) - len(np.where(warm_users)[0]))
     diagonal = sparse.eye(unmasked_vals_coo.shape[0]).tocsr()
     for i in warm_users:
