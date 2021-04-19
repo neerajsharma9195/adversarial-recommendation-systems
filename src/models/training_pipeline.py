@@ -2,6 +2,7 @@ from torch.utils.data import DataLoader
 import torch
 from src.preprocessing.dataloader import ItemDataset, UserDataset
 from src.models.arcf_with_embedding import train_item_ar, train_user_ar
+import os
 import random
 
 import argparse
@@ -27,12 +28,16 @@ parser.add_argument("--wandb_project_name", default='adversarial-recommendation-
 
 args, unknown = parser.parse_known_args()
 
+print("Dataset path {}".format(os.path.join(args.dataset_dir, args.hdf_file_path)))
+
 if args.interaction == 'users':
     print("Training for Users")
-    training_dataset = UserDataset(data_name='food', mode='train')
+    training_dataset = UserDataset(data_name='food', mode='train',
+                                   path=os.path.join(args.dataset_dir, args.hdf_file_path))
 elif args.interaction == 'items':
     print("Training for Items")
-    training_dataset = ItemDataset(data_name='food', mode='train')
+    training_dataset = ItemDataset(data_name='food', mode='train',
+                                   path=os.path.join(args.dataset_dir, args.hdf_file_path))
 else:
     print("***** ERROR: WRONG ARGS *******")
     exit(0)
@@ -46,8 +51,6 @@ print("train numItems {}".format(numItems))
 manualSeed = 42
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
-
-print("Dataset path dir {} and hdf file name {}".format(args.dataset_dir, args.hdf_file_path))
 
 print("wandb project name {}".format(args.wandb_project_name))
 
