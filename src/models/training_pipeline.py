@@ -16,7 +16,7 @@ parser.add_argument("--dataset_dir", default="/mnt/nfs/scratch1/neerajsharma/ama
 parser.add_argument("--hdf_file_path", default='new_5_dataset.h5',
                     type=str, required=False,
                     help="open retrieval quac json for predictions.")
-parser.add_argument("--user", default=True, type=bool, required=True,
+parser.add_argument("--interaction", default="users", type=str, required=True,
                     help="whether to train for users or items if True train for users else for items")
 parser.add_argument("--output_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results',
                     type=str, required=False,
@@ -27,12 +27,15 @@ parser.add_argument("--wandb_project_name", default='adversarial-recommendation-
 
 args, unknown = parser.parse_known_args()
 
-if args.user:
+if args.interaction == 'users':
     print("Training for Users")
     training_dataset = UserDataset(data_name='food', mode='train')
-else:
+elif args.interaction == 'items':
     print("Training for Items")
     training_dataset = ItemDataset(data_name='food', mode='train')
+else:
+    print("***** ERROR: WRONG ARGS *******")
+    exit(0)
 
 train_loader = DataLoader(training_dataset, batch_size=1, shuffle=True, num_workers=16)
 
@@ -56,7 +59,7 @@ review_embedding_dim = 128
 
 '''
 
-if args.user:
+if args.interaction == 'users':
     train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=None,
                   num_users=numUsers, user_embedding_dim=user_or_item_embedding_dim, noise_size=noise_size, num_items=numItems,
                   review_embedding_size=review_embedding_dim, use_reviews=True,
