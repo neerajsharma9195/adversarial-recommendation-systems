@@ -1,8 +1,8 @@
 import torch
-import random
 from torch.utils.data import DataLoader
 import os
 import numpy as np
+import random
 from src.models.base_models import Generator, Discriminator
 from src.preprocessing.dataloader import UserDataset
 
@@ -20,6 +20,7 @@ num_users = train_dataset.numIDs
 num_items = train_dataset.numItems
 print("train numUsers {}".format(num_users))
 print("train numItems {}".format(num_items))
+
 user_embedding_dim = 128
 noise_size = 128
 review_embedding_size = 128
@@ -46,11 +47,13 @@ user_missing_discriminator = Discriminator(num_inputs=num_users, input_size=num_
                                            review_embedding_size=review_embedding_size,
                                            use_reviews=use_reviews).to(device)
 
-
 model_params_path = "/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results"
 
-user_rating_generator.load_state_dict(torch.load(os.path.join(model_params_path, "users_rating_generator_epoch_{}.pt".format(best_epoch))))
-user_missing_generator.load_state_dict(torch.load(os.path.join(model_params_path, "users_missing_generator_epoch_{}.pt".format(best_epoch))))
+user_rating_generator.load_state_dict(
+    torch.load(os.path.join(model_params_path, "users_rating_generator_epoch_{}.pt".format(best_epoch))))
+user_missing_generator.load_state_dict(
+    torch.load(os.path.join(model_params_path, "users_missing_generator_epoch_{}.pt".format(best_epoch))))
+
 
 def generate_neighbor(index, review_embeddings):
     noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
@@ -59,29 +62,34 @@ def generate_neighbor(index, review_embeddings):
     review_embeddings = review_embeddings.to(device)
     rating_vector = user_rating_generator(noise_vector, index, review_embeddings)
     missing_vector = user_missing_generator(noise_vector, index, review_embeddings)
-    return rating_vector*missing_vector
+    return rating_vector * missing_vector
 
+
+index_arr = [i for i in range(len(num_users))]
+weights = [1 / len(torch.nonzero(train_dataset.__getitem__(i)[2])) for i in range(num_users)]
+
+
+def get_sample(sample_size):
+    return random.choices(index_arr, weights, k=sample_size)
+
+
+generate_users_count = 10000
+
+sample_batch_size = 100
 
 count = 0
 
-while count < 2:
-    indexes = [1, 2, 3]
+generated_neighbors = []
+
+while count < generate_users_count:
+    indexes = get_sample(sample_size=sample_batch_size)
+    count += len(indexes)
     for index in indexes:
         user_reviews_embedding, user_ratings, idx = train_dataset.__getitem__(index)
         user_reviews_embedding = torch.unsqueeze(user_reviews_embedding, 0)
         user_ratings = torch.unsqueeze(user_ratings, 0)
         idx = torch.unsqueeze(idx, 0)
-        print("user_reviews_embedding type {} and shape {}".format(type(user_reviews_embedding), user_reviews_embedding.shape))
-        print("user ratings type {} and shape {}".format(type(user_ratings), user_ratings.shape))
-        print("idx type and shape {}".format(type(idx), idx.shape))
         neighbor = generate_neighbor(idx, user_reviews_embedding)
-        print("neighbors shape {} type {}".format(neighbor.shape, type(neighbor)))
-    count += 1
+        generated_neighbors.append(neighbor)
 
 
-
-# while num_added_users / num_original_users < .40:
-#     selected_user = sample real user(using alpha)
-#     generated_user = generator(selected_user, noise)
-#     data.append(generated_user)
-#     num_added_users += 1
