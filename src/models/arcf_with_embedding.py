@@ -42,41 +42,42 @@ def train(rating_generator, missing_generator, rating_discriminator,
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, index_item = batch
                 review_embedding = review_embedding.float().to(device)
-                real_missing_vector = torch.tensor((rating_vector > 0) * 1).float().to(device)
-                index_item = index_item.long().to(device)
-                noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
-                if not use_reviews:
-                    review_embedding = None
-                fake_rating_vector = rating_generator(noise_vector, index_item, review_embedding)
+                if torch.sum(rating_vector, axis=1) != 0:
+                    real_missing_vector = torch.tensor((rating_vector > 0) * 1).float().to(device)
+                    index_item = index_item.long().to(device)
+                    noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
+                    if not use_reviews:
+                        review_embedding = None
+                    fake_rating_vector = rating_generator(noise_vector, index_item, review_embedding)
 
-                fake_missing_vector = missing_generator(noise_vector, index_item, review_embedding)
+                    fake_missing_vector = missing_generator(noise_vector, index_item, review_embedding)
 
-                fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
-                fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
-                                                           review_embedding)
-                fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
-                g_loss = g_loss + torch.log(1. - fake_rating_results + eps) + torch.log(1. - fake_missing_results + eps)
-                rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
-                if not is_user:
-                    if i % 1000 == 0:
+                    fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
+                    fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
+                                                               review_embedding)
+                    fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
+                    g_loss = g_loss + torch.log(1. - fake_rating_results + eps) + torch.log(1. - fake_missing_results + eps)
+                    rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
+                    if not is_user:
+                        if i % 1000 == 0:
+                            print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
+                                                                                                  rmse_rating_loss,
+                                                                                                  epoch_g_loss))
+                    if i % 10000 == 0:
                         print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
                                                                                               rmse_rating_loss,
                                                                                               epoch_g_loss))
-                if i % 10000 == 0:
-                    print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
-                                                                                          rmse_rating_loss,
-                                                                                          epoch_g_loss))
 
-                if i % 100 == 0:
-                    g_loss = torch.mean(g_loss)
-                    rating_g_optimizer.zero_grad()
-                    missing_g_optimizer.zero_grad()
-                    epoch_g_loss += g_loss.data
-                    epoch_rmse_loss += rmse_rating_loss
-                    g_loss.backward()
-                    rating_g_optimizer.step()
-                    missing_g_optimizer.step()
-                    g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+                    if i % 100 == 0:
+                        g_loss = torch.mean(g_loss)
+                        rating_g_optimizer.zero_grad()
+                        missing_g_optimizer.zero_grad()
+                        epoch_g_loss += g_loss.data
+                        epoch_rmse_loss += rmse_rating_loss
+                        g_loss.backward()
+                        rating_g_optimizer.step()
+                        missing_g_optimizer.step()
+                        g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             g_loss = torch.mean(g_loss)
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
@@ -90,46 +91,47 @@ def train(rating_generator, missing_generator, rating_discriminator,
             d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             for i, batch in enumerate(train_dataloader):
                 review_embedding, real_rating_vector, index_item = batch
-                real_rating_vector = real_rating_vector.float().to(device)
-                review_embedding = review_embedding.float().to(device)
-                real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).float().to(device)
-                index_item = index_item.long().to(device)
-                noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
-                if not use_reviews:
-                    review_embedding = None
-                fake_rating_vector = rating_generator(noise_vector, index_item, review_embedding)
+                if torch.sum(real_rating_vector, axis=1) != 0:
+                    real_rating_vector = real_rating_vector.float().to(device)
+                    review_embedding = review_embedding.float().to(device)
+                    real_missing_vector = torch.tensor((real_rating_vector > 0) * 1).float().to(device)
+                    index_item = index_item.long().to(device)
+                    noise_vector = torch.randn(1, noise_size, dtype=torch.float32, device=device)
+                    if not use_reviews:
+                        review_embedding = None
+                    fake_rating_vector = rating_generator(noise_vector, index_item, review_embedding)
 
-                fake_missing_vector = missing_generator(noise_vector, index_item, review_embedding)
-                fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
+                    fake_missing_vector = missing_generator(noise_vector, index_item, review_embedding)
+                    fake_rating_vector_with_missing = fake_rating_vector * real_missing_vector
 
-                fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
-                                                           review_embedding)
-                real_rating_results = rating_discriminator(real_rating_vector, index_item,
-                                                           review_embedding)
-                fake_missing_results = missing_discriminator(fake_missing_vector, index_item,
-                                                             review_embedding)
-                real_missing_results = missing_discriminator(real_missing_vector, index_item,
-                                                             review_embedding)
-                d_loss = d_loss - (torch.log(real_rating_results + eps) + torch.log(real_missing_results + eps) +
-                                   torch.log(1. - fake_rating_results + eps) + torch.log(
-                            1. - fake_missing_results + eps))
+                    fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
+                                                               review_embedding)
+                    real_rating_results = rating_discriminator(real_rating_vector, index_item,
+                                                               review_embedding)
+                    fake_missing_results = missing_discriminator(fake_missing_vector, index_item,
+                                                                 review_embedding)
+                    real_missing_results = missing_discriminator(real_missing_vector, index_item,
+                                                                 review_embedding)
+                    d_loss = d_loss - (torch.log(real_rating_results + eps) + torch.log(real_missing_results + eps) +
+                                       torch.log(1. - fake_rating_results + eps) + torch.log(
+                                1. - fake_missing_results + eps))
 
-                if not is_user:
-                    if i % 1000 == 0:
+                    if not is_user:
+                        if i % 1000 == 0:
+                            print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
+
+                    if i % 10000 == 0:
                         print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
 
-                if i % 10000 == 0:
-                    print("epoch {} d step {} processed {} d loss {}".format(epoch, step, i, epoch_d_loss))
-
-                if i % batch_size == 0:
-                    d_loss = torch.mean(d_loss)
-                    rating_d_optimizer.zero_grad()
-                    missing_d_optimizer.zero_grad()
-                    epoch_d_loss += d_loss.data
-                    d_loss.backward()
-                    rating_d_optimizer.step()
-                    missing_d_optimizer.step()
-                    d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
+                    if i % batch_size == 0:
+                        d_loss = torch.mean(d_loss)
+                        rating_d_optimizer.zero_grad()
+                        missing_d_optimizer.zero_grad()
+                        epoch_d_loss += d_loss.data
+                        d_loss.backward()
+                        rating_d_optimizer.step()
+                        missing_d_optimizer.step()
+                        d_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             d_loss = torch.mean(d_loss)
             rating_d_optimizer.zero_grad()
             missing_d_optimizer.zero_grad()
