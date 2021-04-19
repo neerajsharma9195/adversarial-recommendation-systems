@@ -60,11 +60,10 @@ user_or_item_embedding_dim = 128
 noise_size = 128
 review_embedding_dim = 128
 
-'''
-
 if args.interaction == 'users':
     train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=None,
-                  num_users=numUsers, user_embedding_dim=user_or_item_embedding_dim, noise_size=noise_size, num_items=numItems,
+                  num_users=numUsers, user_embedding_dim=user_or_item_embedding_dim, noise_size=noise_size,
+                  num_items=numItems,
                   review_embedding_size=review_embedding_dim, use_reviews=True,
                   output_path=args.output_dir,
                   wandb_project_name=args.wandb_project_name)
@@ -77,5 +76,3 @@ else:
                   use_reviews=True,
                   output_path=args.output_dir,
                   wandb_project_name=args.wandb_project_name)
-                  
-'''
