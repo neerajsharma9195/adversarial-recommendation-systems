@@ -68,7 +68,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                                                                                               rmse_rating_loss,
                                                                                               epoch_g_loss))
 
-                    if i % 100 == 0:
+                    if i % batch_size == 0:
                         g_loss = torch.mean(g_loss)
                         rating_g_optimizer.zero_grad()
                         missing_g_optimizer.zero_grad()
@@ -192,7 +192,8 @@ def evaluate_cf(test_dataloader, rating_generator, missing_generator):
 
 def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
                   noise_size, num_items, wandb_project_name, review_embedding_size=128,
-                  use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results'):
+                  use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results',
+                  batch_size=100):
     user_rating_generator = Generator(num_inputs=num_users, input_size=noise_size, item_count=num_items,
                                       c_embedding_size=user_embedding_dim,
                                       review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
@@ -231,12 +232,12 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
           train_dataloader=user_train_dataloader, test_dataloader=user_test_data_loader,
           epochs=num_epochs, g_step=g_step, d_step=d_step, num_users=num_users, num_items=num_items,
           noise_size=noise_size, is_user=True, use_reviews=use_reviews,
-          output_path=output_path, wandb_obj=wandb, batch_size=100)
+          output_path=output_path, wandb_obj=wandb, batch_size=batch_size)
 
 
 def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_embedding_dim,
                   noise_size, num_items, wandb_project_name, review_embedding_size=128,
-                  use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/'):
+                  use_reviews=False, output_path='/mnt/nfs/scratch1/neerajsharma/model_params/', batch_size=100):
     item_rating_generator = Generator(num_inputs=num_items, input_size=noise_size,
                                       item_count=num_users,
                                       c_embedding_size=item_embedding_dim,
@@ -275,4 +276,4 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
           rating_d_optimizer=item_rating_d_optimizer, missing_d_optimizer=item_missing_d_optimizer,
           train_dataloader=item_train_dataloader, test_dataloader=item_test_dataloader, epochs=num_epochs,
           g_step=g_step, d_step=d_step, num_items=num_items, num_users=num_users, noise_size=noise_size, is_user=False,
-          use_reviews=use_reviews, output_path=output_path, wandb_obj=wandb, batch_size=100)
+          use_reviews=use_reviews, output_path=output_path, wandb_obj=wandb, batch_size=batch_size)

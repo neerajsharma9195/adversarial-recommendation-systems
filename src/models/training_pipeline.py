@@ -25,6 +25,8 @@ parser.add_argument("--output_path", default='/mnt/nfs/scratch1/neerajsharma/mod
 parser.add_argument("--wandb_project_name", default='adversarial-recommendation-with-embedding-small-experiments',
                     type=str, required=False,
                     help="wandb project name")
+parser.add_argument("--batch_size", default=100, type=int, required=False,
+                    help="Batch size for updating loss")
 
 args, unknown = parser.parse_known_args()
 
@@ -66,7 +68,8 @@ if args.interaction == 'users':
                   num_items=numItems,
                   review_embedding_size=review_embedding_dim, use_reviews=True,
                   output_path=args.output_dir,
-                  wandb_project_name=args.wandb_project_name)
+                  wandb_project_name=args.wandb_project_name,
+                  batch_size=args.batch_size)
 else:
     train_item_ar(item_train_dataloader=train_loader, item_test_dataloader=None,
                   num_users=numUsers, item_embedding_dim=user_or_item_embedding_dim,
@@ -75,4 +78,5 @@ else:
                   review_embedding_size=review_embedding_dim,
                   use_reviews=True,
                   output_path=args.output_dir,
-                  wandb_project_name=args.wandb_project_name)
+                  wandb_project_name=args.wandb_project_name,
+                  batch_size=args.batch_size)
