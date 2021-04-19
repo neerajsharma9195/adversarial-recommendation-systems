@@ -187,8 +187,6 @@ def train(rating_generator, missing_generator, rating_discriminator,
 
 
 def evaluate_cf(test_dataloader, rating_generator, missing_generator):
-    missing_generator.eval()
-    rating_generator.eval()
     return 0
 
 

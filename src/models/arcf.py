@@ -157,38 +157,11 @@ def train(rating_generator, missing_generator, rating_discriminator,
             missing_generator.train()
 
 
-def evaluate_cf(test_data, rating_generator, missing_generator):
-    missing_generator.eval()
-    rating_generator.eval()
-    # todo: fill this function
-    # mask test data
-    # generate augmented users & items
-    # make CF matrix
-    # compare predictions with masks
-    # calculate & return:
-    #   precision, recall, nDCG(?) MRR(?)
-    # precision = true positives / true positives and false positives
-    # recall = true positives / true positives and false negatives
-    # MAE = 1/N sumN |x_i - x|
-    return 0
-
-
 def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_embedding_dim,
                   noise_size, num_items, review_embedding_size=128,
                   use_reviews=False):
     print('use reviews = ', use_reviews)
     if use_reviews:
-        user_rating_generator = Generator(input_size=noise_size, item_count=num_items,
-                                          c_embedding_size=num_items,
-                                          review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
-        user_missing_generator = Generator(input_size=noise_size, item_count=num_items,
-                                           c_embedding_size=num_items,
-                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
-        user_rating_discriminator = Discriminator(input_size=num_items, c_embedding_size=num_items,
-                                                  review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
-        user_missing_discriminator = Discriminator(input_size=num_items, c_embedding_size=num_items,
-                                                   review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
-    else:
         user_rating_generator = Generator(input_size=noise_size, item_count=num_items,
                                           c_embedding_size=num_items,
                                           review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)

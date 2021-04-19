@@ -10,3 +10,5 @@ bert-embedding==1.0.1
 nltk==3.5
 surprise
 scikit-learn
+progressbar2==3.53.1
+Cython==0.29.22
