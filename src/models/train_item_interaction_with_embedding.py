@@ -20,6 +20,7 @@ print("train numUsers {}".format(numUsers))
 print("train numItems {}".format(numItems))
 
 WANDB_PROJECT_NAME = 'adversarial-recommendation-with-embedding-small-experiments'
+output_path = '/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results'
 
 train_item_ar(item_train_dataloader=train_loader, item_test_dataloader=None,
               num_users=numUsers, item_embedding_dim=item_embedding_dim,
@@ -27,5 +28,5 @@ train_item_ar(item_train_dataloader=train_loader, item_test_dataloader=None,
               num_items=numItems,
               review_embedding_size=128,
               use_reviews=True,
-              output_path='/mnt/nfs/scratch1/neerajsharma/model_params/complete_data_results',
+              output_path=output_path,
               wandb_project_name=WANDB_PROJECT_NAME)
