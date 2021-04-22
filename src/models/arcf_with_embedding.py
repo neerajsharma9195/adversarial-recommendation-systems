@@ -61,7 +61,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     g_loss = g_loss + torch.log((1. - fake_rating_results) * fake_penalty + eps) + \
                              torch.log((1. - fake_missing_results) * fake_penalty + eps)
                     rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
-                    rmse_missing_loss += RMSELoss(fake_missing_vector.cpu(), real_missing_vector)
+                    rmse_missing_loss += RMSELoss(fake_missing_vector.cpu(), real_missing_vector.cpu())
                     if not is_user:
                         if i % 1000 == 0:
                             print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
