@@ -12,7 +12,7 @@ torch.manual_seed(manualSeed)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # todo: small experiment settings currently. Update it to full data usage later.
-train_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='full')
+train_dataset = UserDataset(data_name='food', mode='train')
 # val_dataset = UserDataset(data_name='food', load_full=True, subset_only=True, masked='partial') # todo: uncomment it later
 train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
 # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=0) # todo: uncomment it later
@@ -59,14 +59,14 @@ def generate_neighbor(index, review_embeddings):
     noise_vector = torch.tensor(np.random.normal(0, 1, noise_size).reshape(1, noise_size),
                                 dtype=torch.float32).to(device)
     index = index.type(torch.long).to(device)
-    review_embeddings = review_embeddings.to(device)
+    review_embeddings = review_embeddings.float().to(device)
     rating_vector = user_rating_generator(noise_vector, index, review_embeddings)
     missing_vector = user_missing_generator(noise_vector, index, review_embeddings)
     return rating_vector * missing_vector
 
 
 index_arr = [i for i in range(len(num_users))]
-weights = [1 / len(torch.nonzero(train_dataset.__getitem__(i)[2])) for i in range(num_users)]
+weights = [1 / len(torch.nonzero(train_dataset.__getitem__(i)[1])) for i in range(num_users)]
 
 
 def get_sample(sample_size):
@@ -90,6 +90,5 @@ while count < generate_users_count:
         user_ratings = torch.unsqueeze(user_ratings, 0)
         idx = torch.unsqueeze(idx, 0)
         neighbor = generate_neighbor(idx, user_reviews_embedding)
-        generated_neighbors.append(neighbor)
-
-
+        print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
+        generated_neighbors.append(neighbor.squeeze(0).cpu().detach().numpy())
