@@ -226,8 +226,8 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     wandb.watch(user_missing_generator)
     wandb.watch(user_rating_discriminator)
     wandb.watch(user_missing_discriminator)
-    g_step = 3
-    d_step = 2
+    g_step = 2
+    d_step = 3
     num_epochs = 200
     user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
