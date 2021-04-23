@@ -58,7 +58,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
                                                                review_embedding)
                     fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
-                    g_loss = g_loss + torch.log((1. - fake_rating_results) * fake_penalty + eps) + \
+                    g_loss = g_loss + torch.log((1. - fake_rating_results) + eps) + \
                              torch.log((1. - fake_missing_results) * fake_penalty + eps)
                     rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
                     rmse_missing_loss += RMSELoss(fake_missing_vector.cpu(), real_missing_vector.cpu())
@@ -120,7 +120,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     real_missing_results = missing_discriminator(real_missing_vector, index_item,
                                                                  review_embedding)
                     d_loss = d_loss - (torch.log(real_rating_results + eps) + torch.log(real_missing_results + eps) +
-                                       torch.log((1. - fake_rating_results) * fake_penalty + eps)
+                                       torch.log((1. - fake_rating_results) + eps)
                                        + torch.log((1. - fake_missing_results) * fake_penalty + eps))
 
                     if not is_user:
