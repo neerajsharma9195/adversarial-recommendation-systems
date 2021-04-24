@@ -24,7 +24,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
           train_dataloader, test_dataloader, epochs, g_step, d_step, num_users, num_items, noise_size,
           wandb_obj, embedding_size=128,
           is_user=True, use_reviews=False, batch_size=100,
-          output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/"):
+          output_path="/mnt/nfs/scratch1/rbialik/model_params/arcf_embeddings/", fake_penalty=0.0001):
     torch.cuda.empty_cache()
     rating_generator.train()
     missing_generator.train()
@@ -35,10 +35,12 @@ def train(rating_generator, missing_generator, rating_discriminator,
     for epoch in range(epochs):
         epoch_g_loss = 0
         epoch_d_loss = 0
-        epoch_rmse_loss = 0
+        epoch_rmse_rating_loss = 0
+        epoch_rmse_missing_loss = 0
         for step in range(g_step):
             g_loss = Variable(torch.tensor(0, dtype=torch.float32, device=device), requires_grad=True)
             rmse_rating_loss = 0
+            rmse_missing_loss = 0
             for i, batch in enumerate(train_dataloader):
                 review_embedding, rating_vector, index_item = batch
                 review_embedding = review_embedding.float().to(device)
@@ -56,8 +58,10 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
                                                                review_embedding)
                     fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
-                    g_loss = g_loss + torch.log(1. - fake_rating_results + eps) + torch.log(1. - fake_missing_results + eps)
+                    g_loss = g_loss + torch.log((1. - fake_rating_results) + eps) + \
+                             torch.log((1. - fake_missing_results) * fake_penalty + eps)
                     rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
+                    rmse_missing_loss += RMSELoss(fake_missing_vector.cpu(), real_missing_vector.cpu())
                     if not is_user:
                         if i % 1000 == 0:
                             print("epoch {} g step {} processed {} rmse loss {} g loss {}".format(epoch, step, i,
@@ -73,7 +77,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                         rating_g_optimizer.zero_grad()
                         missing_g_optimizer.zero_grad()
                         epoch_g_loss += g_loss.data
-                        epoch_rmse_loss += rmse_rating_loss
+                        epoch_rmse_rating_loss += rmse_rating_loss
+                        epoch_rmse_missing_loss += rmse_missing_loss
                         g_loss.backward()
                         rating_g_optimizer.step()
                         missing_g_optimizer.step()
@@ -82,7 +87,9 @@ def train(rating_generator, missing_generator, rating_discriminator,
             rating_g_optimizer.zero_grad()
             missing_g_optimizer.zero_grad()
             epoch_g_loss += g_loss.data
-            epoch_rmse_loss += rmse_rating_loss
+            epoch_rmse_rating_loss += rmse_rating_loss
+            epoch_rmse_missing_loss += rmse_missing_loss
+
             g_loss.backward()
             rating_g_optimizer.step()
             missing_g_optimizer.step()
@@ -113,8 +120,8 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     real_missing_results = missing_discriminator(real_missing_vector, index_item,
                                                                  review_embedding)
                     d_loss = d_loss - (torch.log(real_rating_results + eps) + torch.log(real_missing_results + eps) +
-                                       torch.log(1. - fake_rating_results + eps) + torch.log(
-                                1. - fake_missing_results + eps))
+                                       torch.log((1. - fake_rating_results) + eps)
+                                       + torch.log((1. - fake_missing_results) * fake_penalty + eps))
 
                     if not is_user:
                         if i % 1000 == 0:
@@ -145,14 +152,16 @@ def train(rating_generator, missing_generator, rating_discriminator,
                 'epoch': epoch,
                 'user_generator_loss': epoch_g_loss,
                 'user_discriminator_loss': epoch_d_loss,
-                'rmse_generator_loss': epoch_rmse_loss
+                'rmse_user_rating_loss': epoch_rmse_rating_loss,
+                'rmse_user_missing_loss': epoch_rmse_missing_loss
             })
         else:
             wandb_obj.log({
                 'epoch': epoch,
                 'item_generator_loss': epoch_g_loss,
                 'item_discriminator_loss': epoch_d_loss,
-                'rmse_item_generator_loss': epoch_rmse_loss
+                'rmse_item_rating_loss': epoch_rmse_rating_loss,
+                'rmse_item_missing_loss': epoch_rmse_missing_loss
             })
         path_name = "users" if is_user else "items"
 
@@ -217,13 +226,13 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
     wandb.watch(user_missing_generator)
     wandb.watch(user_rating_discriminator)
     wandb.watch(user_missing_discriminator)
-    g_step = 3
-    d_step = 2
+    g_step = 2
+    d_step = 3
     num_epochs = 200
-    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.001, weight_decay=0.001)
-    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.001, weight_decay=0.001)
-    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.001, weight_decay=0.001)
-    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.001, weight_decay=0.001)
+    user_rating_g_optimizer = torch.optim.Adam(user_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_rating_d_optimizer = torch.optim.Adam(user_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_g_optimizer = torch.optim.Adam(user_missing_generator.parameters(), lr=0.0001, weight_decay=0.001)
+    user_missing_d_optimizer = torch.optim.Adam(user_missing_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
     # todo: currently running experiments for a small dataset
     train(rating_generator=user_rating_generator, missing_generator=user_missing_generator,
           rating_discriminator=user_rating_discriminator, missing_discriminator=user_missing_discriminator,

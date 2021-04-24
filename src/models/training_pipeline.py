@@ -9,7 +9,6 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-# arguments shared by the retriever and reader
 
 parser.add_argument("--dataset_dir", default="/mnt/nfs/scratch1/neerajsharma/amazon_data/",
                     type=str, required=False,
@@ -67,7 +66,7 @@ if args.interaction == 'users':
                   num_users=numUsers, user_embedding_dim=user_or_item_embedding_dim, noise_size=noise_size,
                   num_items=numItems,
                   review_embedding_size=review_embedding_dim, use_reviews=True,
-                  output_path=args.output_dir,
+                  output_path=args.output_path,
                   wandb_project_name=args.wandb_project_name,
                   batch_size=args.batch_size)
 else:
@@ -77,6 +76,6 @@ else:
                   num_items=numItems,
                   review_embedding_size=review_embedding_dim,
                   use_reviews=True,
-                  output_path=args.output_dir,
+                  output_path=args.output_path,
                   wandb_project_name=args.wandb_project_name,
                   batch_size=args.batch_size)
