@@ -9,7 +9,6 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-# arguments shared by the retriever and reader
 
 parser.add_argument("--dataset_dir", default="/mnt/nfs/scratch1/neerajsharma/amazon_data/",
                     type=str, required=False,
