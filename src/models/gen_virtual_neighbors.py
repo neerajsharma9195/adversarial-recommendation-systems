@@ -170,9 +170,9 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
                                                review_embedding_size=review_embedding_size,
                                                use_reviews=use_reviews).to(device)
     item_rating_generator.load_state_dict(
-        torch.load(os.path.join(model_params_path, "users_rating_generator_epoch_{}.pt".format(best_epoch))))
+        torch.load(os.path.join(model_params_path, "items_rating_generator_epoch_{}.pt".format(best_epoch))))
     item_missing_generator.load_state_dict(
-        torch.load(os.path.join(model_params_path, "users_missing_generator_epoch_{}.pt".format(best_epoch))))
+        torch.load(os.path.join(model_params_path, "items_missing_generator_epoch_{}.pt".format(best_epoch))))
     item_rating_generator.eval()
     item_missing_generator.eval()
     index_arr = [i for i in range(len(num_items))]
