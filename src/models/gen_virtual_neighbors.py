@@ -1,10 +1,8 @@
 import torch
-from torch.utils.data import DataLoader
 import os
 import numpy as np
 import random
 from src.models.base_models import Generator, Discriminator
-from src.preprocessing.dataloader import UserDataset
 
 manualSeed = 42
 random.seed(manualSeed)
@@ -96,7 +94,7 @@ def generate_neighbor(rating_generator, missing_generator, index, review_embeddi
 
 
 def generate_virtual_users(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path):
+                           best_epoch, neighbors_path, missing_threshold=0.8):
     user_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
@@ -126,26 +124,27 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
         torch.load(os.path.join(model_params_path, "users_missing_generator_epoch_{}.pt".format(best_epoch))))
     user_rating_generator.eval()
     user_missing_generator.eval()
-    index_arr = [i for i in range(len(num_users))]
+    index_arr = [i for i in range(num_users)]
     weights = [1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_users)]
     indexes = random.choices(index_arr, weights, k=total_neighbors // per_user_neighbors)
-    all_generated_neighbors = np.array([])
+    all_generated_neighbors = np.empty((0, num_items), np.float)
     for index in indexes:
         user_reviews_embedding, user_ratings, idx = dataset.__getitem__(index)
         user_reviews_embedding = torch.unsqueeze(user_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
-        neighbor_rating, neighbor_missing = generate_neighbor(user_rating_generator, user_missing_generator, idx,
-                                                              user_reviews_embedding)
-        # todo: add check for generated ratings and missing vector using discriminator
-        neighbor = neighbor_rating * neighbor_missing
-        print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
-        np.vstack((all_generated_neighbors, neighbor.squeeze(0).cpu().detach().numpy()))
-
+        for j in range(per_user_neighbors):
+            neighbor_rating, neighbor_missing = generate_neighbor(user_rating_generator, user_missing_generator, idx,
+                                                                  user_reviews_embedding)
+            neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().cpu()
+            # todo: add check for generated ratings and missing vector using discriminator
+            neighbor = neighbor_rating.cpu() * neighbor_missing
+            print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
+            all_generated_neighbors = np.append(all_generated_neighbors, neighbor.cpu().detach().numpy(), axis=0)
     np.save(neighbors_path, all_generated_neighbors)
 
 
 def generate_virtual_items(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path):
+                           best_epoch, neighbors_path, missing_threshold=0.8):
     item_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
@@ -175,19 +174,21 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
         torch.load(os.path.join(model_params_path, "items_missing_generator_epoch_{}.pt".format(best_epoch))))
     item_rating_generator.eval()
     item_missing_generator.eval()
-    index_arr = [i for i in range(len(num_items))]
+    index_arr = [i for i in range(num_items)]
     weights = [1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_items)]
     indexes = random.choices(index_arr, weights, k=total_neighbors // per_user_neighbors)
-    all_generated_neighbors = np.array([])
+    all_generated_neighbors = np.empty((0, num_users), np.float)
     for index in indexes:
         item_reviews_embedding, item_ratings, idx = dataset.__getitem__(index)
         item_reviews_embedding = torch.unsqueeze(item_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
-        neighbor_rating, neighbor_missing = generate_neighbor(item_rating_generator, item_missing_generator, idx,
-                                                              item_reviews_embedding)
-        # todo: add check for generated ratings and missing vector using discriminator
-        neighbor = neighbor_rating * neighbor_missing
-        print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
-        np.vstack((all_generated_neighbors, neighbor.squeeze(0).cpu().detach().numpy()))
+        for j in range(per_user_neighbors):
+            neighbor_rating, neighbor_missing = generate_neighbor(item_rating_generator, item_missing_generator, idx,
+                                                                  item_reviews_embedding)
+            # todo: add check for generated ratings and missing vector using discriminator
+            neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().cpu()
+            neighbor = neighbor_rating.cpu() * neighbor_missing
+            print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
+            all_generated_neighbors = np.append(all_generated_neighbors, neighbor.cpu().detach().numpy(), axis=0)
 
     np.save(neighbors_path, all_generated_neighbors)

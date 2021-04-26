@@ -1,8 +1,6 @@
-from torch.utils.data import DataLoader
 import torch
 from src.preprocessing.dataloader import ItemDataset, UserDataset
 from src.models.gen_virtual_neighbors import generate_virtual_users, generate_virtual_items
-from src.models.arcf_with_embedding import train_item_ar, train_user_ar
 import os
 import random
 
@@ -27,7 +25,7 @@ parser.add_argument("--total_neighbors", default=10000, type=int, required=False
                     help="total neighbors need to be generated")
 parser.add_argument("--epoch", type=int, required=True,
                     help="epoch need to be used to generate neighbors")
-parser.add_argument("--neighbors_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results',
+parser.add_argument("--neighbors_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results/neighbors.npy',
                     type=str, required=False,
                     help="Saved path of neighbors")
 
@@ -71,12 +69,12 @@ torch.manual_seed(manualSeed)
 
 if args.interaction == 'users':
     print("Generating Users")
-    neighbors_path = os.path.join(neighbors_path, "generated_virtual_users.npy")
-    generate_virtual_users(model_params_path, total_neighbors, per_user_neighbors, best_epoch, neighbors_path)
+    generate_virtual_users(dataset=training_dataset, num_users=numUsers, num_items=numItems, model_params_path=model_params_path, total_neighbors=total_neighbors, per_user_neighbors=per_user_neighbors,
+                           best_epoch=best_epoch, neighbors_path=neighbors_path)
 elif args.interaction == 'items':
     print("Generating Items")
-    neighbors_path = os.path.join(neighbors_path, "generated_virtual_items.npy")
-    generate_virtual_items(model_params_path, total_neighbors, per_user_neighbors, best_epoch, neighbors_path)
+    generate_virtual_items(dataset=training_dataset, num_users=numUsers, num_items=numItems, model_params_path=model_params_path, total_neighbors=total_neighbors, per_user_neighbors=per_user_neighbors,
+                           best_epoch=best_epoch, neighbors_path=neighbors_path)
 else:
     print("***** ERROR: WRONG ARGS *******")
     exit(0)
