@@ -69,10 +69,12 @@ torch.manual_seed(manualSeed)
 
 if args.interaction == 'users':
     print("Generating Users")
-    generate_virtual_users(model_params_path, total_neighbors, per_user_neighbors, best_epoch, neighbors_path)
+    generate_virtual_users(dataset=training_dataset, num_users=numUsers, num_items=numItems, model_params_path=model_params_path, total_neighbors=total_neighbors, per_user_neighbors=per_user_neighbors,
+                           best_epoch=best_epoch, neighbors_path=neighbors_path)
 elif args.interaction == 'items':
     print("Generating Items")
-    generate_virtual_items(model_params_path, total_neighbors, per_user_neighbors, best_epoch, neighbors_path)
+    generate_virtual_items(dataset=training_dataset, num_users=numUsers, num_items=numItems, model_params_path=model_params_path, total_neighbors=total_neighbors, per_user_neighbors=per_user_neighbors,
+                           best_epoch=best_epoch, neighbors_path=neighbors_path)
 else:
     print("***** ERROR: WRONG ARGS *******")
     exit(0)
