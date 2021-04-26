@@ -25,7 +25,7 @@ parser.add_argument("--total_neighbors", default=10000, type=int, required=False
                     help="total neighbors need to be generated")
 parser.add_argument("--epoch", type=int, required=True,
                     help="epoch need to be used to generate neighbors")
-parser.add_argument("--neighbors_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results',
+parser.add_argument("--neighbors_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results/neighbors.npy',
                     type=str, required=False,
                     help="Saved path of neighbors")
 
@@ -69,11 +69,9 @@ torch.manual_seed(manualSeed)
 
 if args.interaction == 'users':
     print("Generating Users")
-    neighbors_path = os.path.join(neighbors_path, "generated_virtual_users.npy")
     generate_virtual_users(model_params_path, total_neighbors, per_user_neighbors, best_epoch, neighbors_path)
 elif args.interaction == 'items':
     print("Generating Items")
-    neighbors_path = os.path.join(neighbors_path, "generated_virtual_items.npy")
     generate_virtual_items(model_params_path, total_neighbors, per_user_neighbors, best_epoch, neighbors_path)
 else:
     print("***** ERROR: WRONG ARGS *******")
