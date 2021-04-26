@@ -1,10 +1,8 @@
 import torch
-from torch.utils.data import DataLoader
 import os
 import numpy as np
 import random
 from src.models.base_models import Generator, Discriminator
-from src.preprocessing.dataloader import UserDataset
 
 manualSeed = 42
 random.seed(manualSeed)
@@ -96,7 +94,7 @@ def generate_neighbor(rating_generator, missing_generator, index, review_embeddi
 
 
 def generate_virtual_users(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path):
+                           best_epoch, neighbors_path, missing_threshold=0.7):
     user_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
@@ -134,12 +132,14 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
         user_reviews_embedding, user_ratings, idx = dataset.__getitem__(index)
         user_reviews_embedding = torch.unsqueeze(user_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
-        neighbor_rating, neighbor_missing = generate_neighbor(user_rating_generator, user_missing_generator, idx,
-                                                              user_reviews_embedding)
-        # todo: add check for generated ratings and missing vector using discriminator
-        neighbor = neighbor_rating * neighbor_missing
-        print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
-        np.vstack((all_generated_neighbors, neighbor.squeeze(0).cpu().detach().numpy()))
+        for j in range(per_user_neighbors):
+            neighbor_rating, neighbor_missing = generate_neighbor(user_rating_generator, user_missing_generator, idx,
+                                                                  user_reviews_embedding)
+            neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().to(device)
+            # todo: add check for generated ratings and missing vector using discriminator
+            neighbor = neighbor_rating * neighbor_missing
+            print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
+            np.vstack((all_generated_neighbors, neighbor.squeeze(0).cpu().detach().numpy()))
 
     np.save(neighbors_path, all_generated_neighbors)
 

@@ -1,8 +1,6 @@
-from torch.utils.data import DataLoader
 import torch
 from src.preprocessing.dataloader import ItemDataset, UserDataset
 from src.models.gen_virtual_neighbors import generate_virtual_users, generate_virtual_items
-from src.models.arcf_with_embedding import train_item_ar, train_user_ar
 import os
 import random
 
