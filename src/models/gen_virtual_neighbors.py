@@ -124,7 +124,7 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
         torch.load(os.path.join(model_params_path, "users_missing_generator_epoch_{}.pt".format(best_epoch))))
     user_rating_generator.eval()
     user_missing_generator.eval()
-    index_arr = [i for i in range(len(num_users))]
+    index_arr = [i for i in range(num_users)]
     weights = [1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_users)]
     indexes = random.choices(index_arr, weights, k=total_neighbors // per_user_neighbors)
     all_generated_neighbors = np.array([])
@@ -175,7 +175,7 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
         torch.load(os.path.join(model_params_path, "items_missing_generator_epoch_{}.pt".format(best_epoch))))
     item_rating_generator.eval()
     item_missing_generator.eval()
-    index_arr = [i for i in range(len(num_items))]
+    index_arr = [i for i in range(num_items)]
     weights = [1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_items)]
     indexes = random.choices(index_arr, weights, k=total_neighbors // per_user_neighbors)
     all_generated_neighbors = np.array([])
