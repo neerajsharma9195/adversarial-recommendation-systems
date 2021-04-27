@@ -125,22 +125,27 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
     user_rating_generator.eval()
     user_missing_generator.eval()
     index_arr = [i for i in range(num_users)]
-    weights = [1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_users)]
-    indexes = random.choices(index_arr, weights, k=total_neighbors // per_user_neighbors)
-    all_generated_neighbors = np.empty((0, num_items), np.float)
+    weights = np.array([1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_users)])
+    weights /= weights.sum()
+    indexes = np.random.choice(index_arr, size=total_neighbors // per_user_neighbors, replace=False, p=weights)
+    all_generated_neighbors = []
     for index in indexes:
         user_reviews_embedding, user_ratings, idx = dataset.__getitem__(index)
         user_reviews_embedding = torch.unsqueeze(user_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
-        for j in range(per_user_neighbors):
+        generated_neighbors = np.empty((0, per_user_neighbors), np.float)
+        for j in range(per_user_neighbors):            
             neighbor_rating, neighbor_missing = generate_neighbor(user_rating_generator, user_missing_generator, idx,
                                                                   user_reviews_embedding)
             neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().cpu()
             # todo: add check for generated ratings and missing vector using discriminator
             neighbor = torch.ceil(neighbor_rating.cpu() * neighbor_missing * 5)
-            all_generated_neighbors = np.append(all_generated_neighbors, neighbor.cpu().detach().numpy(), axis=0)
+            generated_neighbors[j] = neighbor.cpu().detach().numpy()
+        all_generated_neighbors.append(generated_neighbors)
         print("generating item for index {}".format(index))
-    np.save(neighbors_path, all_generated_neighbors)
+    
+    uid_2_generated_neighbors = dict(zip(indexes, all_generated_neighbors))
+    np.save(neighbors_path, uid_2_generated_neighbors)
 
 
 def generate_virtual_items(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
@@ -175,19 +180,25 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
     item_rating_generator.eval()
     item_missing_generator.eval()
     index_arr = [i for i in range(num_items)]
-    weights = [1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_items)]
-    indexes = random.choices(index_arr, weights, k=total_neighbors // per_user_neighbors)
-    all_generated_neighbors = np.empty((0, num_users), np.float)
+    weights = np.array([1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_items)])
+    weights /= weights.sum()
+    indexes = np.random.choice(index_arr, size=total_neighbors // per_user_neighbors, replace=False, p=weights)
+    all_generated_neighbors = []
     for index in indexes:
         item_reviews_embedding, item_ratings, idx = dataset.__getitem__(index)
         item_reviews_embedding = torch.unsqueeze(item_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
+        generated_neighbors = np.empty((0, per_user_neighbors), np.float)
         for j in range(per_user_neighbors):
             neighbor_rating, neighbor_missing = generate_neighbor(item_rating_generator, item_missing_generator, idx,
                                                                   item_reviews_embedding)
             # todo: add check for generated ratings and missing vector using discriminator
             neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().cpu()
             neighbor = torch.ceil(neighbor_rating.cpu() * neighbor_missing * 5)
-            all_generated_neighbors = np.append(all_generated_neighbors, neighbor.cpu().detach().numpy(), axis=0)
+
+            generated_neighbors[j] = neighbor.cpu().detach().numpy()
+        all_generated_neighbors.append(generated_neighbors)
         print("generating item for index {}".format(index))
-    np.save(neighbors_path, all_generated_neighbors)
+    
+    iid_2_generated_neighbors = dict(zip(indexes, all_generated_neighbors))
+    np.save(neighbors_path, iid_2_generated_neighbors)
