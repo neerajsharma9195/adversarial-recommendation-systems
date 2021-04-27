@@ -205,12 +205,10 @@ def train_user_ar(user_train_dataloader, user_test_data_loader, num_users, user_
                   batch_size=100):
     user_rating_generator = Generator(num_inputs=num_users, input_size=noise_size, item_count=num_items,
                                       c_embedding_size=user_embedding_dim,
-                                      review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
-        device)
+                                      review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
     user_missing_generator = Generator(num_inputs=num_users, input_size=noise_size, item_count=num_items,
                                        c_embedding_size=user_embedding_dim,
-                                       review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(
-        device)
+                                       review_embedding_size=review_embedding_size, use_reviews=use_reviews).to(device)
     user_rating_discriminator = Discriminator(num_inputs=num_users, input_size=num_items,
                                               c_embedding_size=user_embedding_dim,
                                               rating_dense_representation_size=review_embedding_size,

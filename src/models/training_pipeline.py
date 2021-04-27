@@ -26,6 +26,8 @@ parser.add_argument("--wandb_project_name", default='adversarial-recommendation-
                     help="wandb project name")
 parser.add_argument("--batch_size", default=100, type=int, required=False,
                     help="Batch size for updating loss")
+parser.add_argument("--use_reviews", default="yes", type=str, required=False,
+                    help="use reviews or not for training")
 
 args, unknown = parser.parse_known_args()
 
@@ -61,11 +63,13 @@ user_or_item_embedding_dim = 128
 noise_size = 128
 review_embedding_dim = 128
 
+use_reviews = True if args.use_reviews == 'yes' else False
+
 if args.interaction == 'users':
     train_user_ar(user_train_dataloader=train_loader, user_test_data_loader=None,
                   num_users=numUsers, user_embedding_dim=user_or_item_embedding_dim, noise_size=noise_size,
                   num_items=numItems,
-                  review_embedding_size=review_embedding_dim, use_reviews=True,
+                  review_embedding_size=review_embedding_dim, use_reviews=use_reviews,
                   output_path=args.output_path,
                   wandb_project_name=args.wandb_project_name,
                   batch_size=args.batch_size)
@@ -75,7 +79,7 @@ else:
                   noise_size=noise_size,
                   num_items=numItems,
                   review_embedding_size=review_embedding_dim,
-                  use_reviews=True,
+                  use_reviews=use_reviews,
                   output_path=args.output_path,
                   wandb_project_name=args.wandb_project_name,
                   batch_size=args.batch_size)
