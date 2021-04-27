@@ -75,7 +75,7 @@ if __name__ == "__main__":
                         help="Generated data file path")
     parser.add_argument("--use_augmentation", default='no',
                         type=str, required=False,
-                        help="whether to use augmentation yes otherwise no")
+                        help="whether to use augmentation `yes` otherwise `no`")
 
     args, unknown = parser.parse_known_args()
     generated_users_file = args.augmented_file_path
@@ -89,6 +89,9 @@ if __name__ == "__main__":
         generated_users_coo = sparse.coo_matrix(np.load(generated_users_file))
         masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
         unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
+        aug = True
+    else:
+        aug = False
 
     mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
     mask_csr = mask_coo.tocsr()
