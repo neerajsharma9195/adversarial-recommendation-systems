@@ -143,8 +143,7 @@ def print_table(tab_data, labels, aug, cold_start=False):
     print(table)
     user_type = 'cold_start' if cold_start is True else 'all_users'
     aug_type = 'aug_' if aug is True else 'base_'
-    if aug:
-        filename = f'./results/{user_type}/{aug_type}errors.txt'
+    filename = f'./results/{user_type}/{aug_type}errors.txt'
     with open(filename, 'w') as f:
         f.write(table)
 
