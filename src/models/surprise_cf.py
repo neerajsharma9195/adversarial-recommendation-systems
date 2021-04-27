@@ -1,6 +1,9 @@
 import time
 import numpy as np
 from scipy import sparse
+import argparse
+
+parser = argparse.ArgumentParser()
 from multiprocessing import Pool
 from surprise import accuracy, SVD, NormalPredictor, KNNBasic, BaselineOnly
 from src.models.cf_utils import *
@@ -67,12 +70,20 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
 
 if __name__ == "__main__":
 
-    generated_users_file = '/mnt/nfs/scratch1/rbialik/adversarial-recommendation-systems/model_params/generated_100_user_neighbors.npy'
-    aug = True
+    parser.add_argument("--augmented_file_path", default="'/mnt/nfs/scratch1/rbialik/adversarial-recommendation-systems/model_params/generated_100_user_neighbors.npy'",
+                        type=str, required=False,
+                        help="Generated data file path")
+    parser.add_argument("--use_augmentation", default='no',
+                        type=str, required=False,
+                        help="whether to use augmentation yes otherwise no")
+
+    args, unknown = parser.parse_known_args()
+    generated_users_file = args.augmented_file_path
+    aug = args.use_augmentation
 
     # masked_R_coo, unmasked_R_coo = toy_example()
     masked_R_coo, unmasked_R_coo = get_data_from_dataloader()
-    if aug:
+    if aug == 'yes':
         generated_users_coo = sparse.coo_matrix(np.load(generated_users_file))
         masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
         unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
