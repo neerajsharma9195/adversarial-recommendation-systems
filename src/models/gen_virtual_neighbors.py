@@ -137,7 +137,7 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
                                                                   user_reviews_embedding)
             neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().cpu()
             # todo: add check for generated ratings and missing vector using discriminator
-            neighbor = neighbor_rating.cpu() * neighbor_missing
+            neighbor = torch.ceil(neighbor_rating.cpu() * neighbor_missing * 5)
             print("neighbor type {} shape {}".format(type(neighbor), neighbor.shape))
             all_generated_neighbors = np.append(all_generated_neighbors, neighbor.cpu().detach().numpy(), axis=0)
     np.save(neighbors_path, all_generated_neighbors)
