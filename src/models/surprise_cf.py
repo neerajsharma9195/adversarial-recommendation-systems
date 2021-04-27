@@ -81,6 +81,8 @@ if __name__ == "__main__":
     generated_users_file = args.augmented_file_path
     aug = args.use_augmentation
 
+    print("augmentation use or not {}".format(aug))
+    print("file path for augmented data {}".format(generated_users_file))
     # masked_R_coo, unmasked_R_coo = toy_example()
     masked_R_coo, unmasked_R_coo = get_data_from_dataloader()
     if aug == 'yes':
