@@ -271,8 +271,8 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
     wandb.watch(item_missing_generator)
     wandb.watch(item_rating_discriminator)
     wandb.watch(item_missing_discriminator)
-    g_step = 1
-    d_step = 1
+    g_step = 2
+    d_step = 3
     num_epochs = 200
     item_rating_g_optimizer = torch.optim.Adam(item_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     item_rating_d_optimizer = torch.optim.Adam(item_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)
