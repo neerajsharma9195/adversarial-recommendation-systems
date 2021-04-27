@@ -77,7 +77,7 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
 #                   Printing and Plotting                       #
 #################################################################
 
-def show_and_save(models):
+def show_and_save(models, aug):
     ks = models[0].ks
     labels = [model.name for model in models]
     errors = [[model.mae, model.rmse] for model in models]
@@ -92,55 +92,59 @@ def show_and_save(models):
     os.makedirs('results/cold_start', exist_ok=True)
     os.makedirs('results/all_users', exist_ok=True)
 
-    plot_MAP(MAPs, labels, ks)
-    plot_MAR(MARs, labels, ks)
+    plot_MAP(MAPs, labels, ks, aug)
+    plot_MAR(MARs, labels, ks, aug)
     error_labels = ['all_users'] + ['MAE', 'RMSE']
     tab_data = [[labels[i]] + errors[i] for i in range(len(labels))]
-    print_table(tab_data, error_labels)
+    print_table(tab_data, error_labels, aug)
 
-    plot_MAP(cold_MAPs, labels, ks, cold_start=True)
-    plot_MAR(cold_MARs, labels, ks, cold_start=True)
+    plot_MAP(cold_MAPs, labels, ks, aug, cold_start=True)
+    plot_MAR(cold_MARs, labels, ks, aug, cold_start=True)
     error_labels = ['cold_users'] + ['MAE', 'RMSE']
     tab_data = [[labels[i]] + cold_errors[i] for i in range(len(labels))]
-    print_table(tab_data, error_labels, cold_start=True)
+    print_table(tab_data, error_labels, aug, cold_start=True)
 
-def plot_MAP(MAPs, labels, ks, cold_start=False):
+def plot_MAP(MAPs, labels, ks, aug, cold_start=False):
     for i in range(len(MAPs)):
         plt.plot(ks, MAPs[i], label=labels[i])
     if cold_start:
         plt.title('Mean Average Precision at k (MAP@k) for Cold Start Users')
-        file_loc = './results/cold_start/MAPk'
+        user_type = 'cold_start'
     else:
         plt.title('Mean Average Precision at k (MAP@k)')
-        file_loc = './results/all_users/MAPk'
+        user_type = 'all_users'
+    aug_type = 'aug_' if aug is True else ''
+    file_loc = f'./results/{user_type}/{aug_type}MAPk'
     plt.xlabel('k')
     plt.ylabel('Precision')
     plt.legend(loc='lower right')
     plt.savefig(file_loc)
     plt.close()
 
-def plot_MAR(MARs, labels, ks, cold_start=False):
+def plot_MAR(MARs, labels, ks, aug, cold_start=False):
     for i in range(len(MARs)):
         plt.plot(ks, MARs[i], label=labels[i])
     if cold_start:
         plt.title('Mean Average Recall at k (MAR@k) for Cold Start Users')
-        file_loc = './results/cold_start/MARk'
+        user_type = 'cold_start'
     else:
         plt.title('Mean Average Recall at k (MAR@k)')
-        file_loc = './results/all_users/MARk'
+        user_type = 'all_users'
+    aug_type = 'aug_' if aug is True else ''
+    file_loc = f'./results/{user_type}/{aug_type}MARk'
     plt.xlabel('k')
     plt.ylabel('Recall')
     plt.legend(loc='lower right')
     plt.savefig(file_loc)
     plt.close()
 
-def print_table(tab_data, labels, cold_start=False):
+def print_table(tab_data, labels, aug, cold_start=False):
     table = tabulate(tab_data, headers=labels, tablefmt="fancy_grid")
     print(table)
-    if cold_start:
-        filename = './results/cold_start/errors.txt'
-    else:
-        filename = './results/all_users/errors.txt'
+    user_type = 'cold_start' if cold_start is True else 'all_users'
+    aug_type = 'aug_' if aug is True else 'base_'
+    if aug:
+        filename = f'./results/{user_type}/{aug_type}errors.txt'
     with open(filename, 'w') as f:
         f.write(table)
 

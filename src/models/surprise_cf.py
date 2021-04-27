@@ -49,7 +49,7 @@ def run_model(model, trainset, testset, cold_testset):
     model.evaluate_cold_users()
     return model
 
-def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks):
+def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug):
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     models = [
         Model(name='random', algo=NormalPredictor(), ks=ks),
@@ -62,13 +62,20 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
     with Pool() as pool:
         models = pool.starmap(run_model, args)
     
-    show_and_save(models)
+    show_and_save(models, aug)
 
 
 if __name__ == "__main__":
 
+    generated_users_file = '/mnt/nfs/scratch1/rbialik/adversarial-recommendation-systems/model_params/generated_100_user_neighbors.npy'
+    aug = True
+
     # masked_R_coo, unmasked_R_coo = toy_example()
     masked_R_coo, unmasked_R_coo = get_data_from_dataloader()
+    if aug:
+        generated_users_coo = sparse.coo_matrix(np.load(generated_users_file))
+        masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
+        unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
 
     mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
     mask_csr = mask_coo.tocsr()
@@ -79,4 +86,4 @@ if __name__ == "__main__":
     
     ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15]
 
-    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks)
+    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug)
