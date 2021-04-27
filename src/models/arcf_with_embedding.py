@@ -58,7 +58,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     fake_rating_results = rating_discriminator(fake_rating_vector_with_missing, index_item,
                                                                review_embedding)
                     fake_missing_results = missing_discriminator(fake_missing_vector, index_item, review_embedding)
-                    g_loss = g_loss + torch.log((1. - fake_rating_results) + eps) + \
+                    g_loss = g_loss + torch.log((1. - fake_rating_results) * fake_penalty + eps) + \
                              torch.log((1. - fake_missing_results) * fake_penalty + eps)
                     rmse_rating_loss += RMSELoss(fake_rating_vector_with_missing.cpu(), rating_vector)
                     rmse_missing_loss += RMSELoss(fake_missing_vector.cpu(), real_missing_vector.cpu())
@@ -120,7 +120,7 @@ def train(rating_generator, missing_generator, rating_discriminator,
                     real_missing_results = missing_discriminator(real_missing_vector, index_item,
                                                                  review_embedding)
                     d_loss = d_loss - (torch.log(real_rating_results + eps) + torch.log(real_missing_results + eps) +
-                                       torch.log((1. - fake_rating_results) + eps)
+                                       torch.log((1. - fake_rating_results) * fake_penalty + eps)
                                        + torch.log((1. - fake_missing_results) * fake_penalty + eps))
 
                     if not is_user:
@@ -271,8 +271,8 @@ def train_item_ar(item_train_dataloader, item_test_dataloader, num_users, item_e
     wandb.watch(item_missing_generator)
     wandb.watch(item_rating_discriminator)
     wandb.watch(item_missing_discriminator)
-    g_step = 1
-    d_step = 1
+    g_step = 2
+    d_step = 3
     num_epochs = 200
     item_rating_g_optimizer = torch.optim.Adam(item_rating_generator.parameters(), lr=0.0001, weight_decay=0.001)
     item_rating_d_optimizer = torch.optim.Adam(item_rating_discriminator.parameters(), lr=0.0001, weight_decay=0.001)

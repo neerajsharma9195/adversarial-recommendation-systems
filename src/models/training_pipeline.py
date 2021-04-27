@@ -15,7 +15,7 @@ parser.add_argument("--dataset_dir", default="/mnt/nfs/scratch1/neerajsharma/ama
                     help="dataset directory")
 parser.add_argument("--hdf_file_path", default='new_5_dataset.h5',
                     type=str, required=False,
-                    help="open retrieval quac json for predictions.")
+                    help="hdfs file path for data")
 parser.add_argument("--interaction", default="users", type=str, required=True,
                     help="whether to train for users or items if True train for users else for items")
 parser.add_argument("--output_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results',

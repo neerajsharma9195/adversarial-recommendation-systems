@@ -1,6 +1,9 @@
 import time
 import numpy as np
 from scipy import sparse
+import argparse
+
+parser = argparse.ArgumentParser()
 from multiprocessing import Pool
 from surprise import accuracy, SVD, NormalPredictor, KNNBasic, BaselineOnly
 from src.models.cf_utils import *
@@ -49,7 +52,7 @@ def run_model(model, trainset, testset, cold_testset):
     model.evaluate_cold_users()
     return model
 
-def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks):
+def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug):
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     models = [
         Model(name='random', algo=NormalPredictor(), ks=ks),
@@ -62,13 +65,33 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
     with Pool() as pool:
         models = pool.starmap(run_model, args)
     
-    show_and_save(models)
+    show_and_save(models, aug)
 
 
 if __name__ == "__main__":
 
+    parser.add_argument("--augmented_file_path", default="'/mnt/nfs/scratch1/rbialik/adversarial-recommendation-systems/model_params/generated_100_user_neighbors.npy'",
+                        type=str, required=False,
+                        help="Generated data file path")
+    parser.add_argument("--use_augmentation", default='no',
+                        type=str, required=False,
+                        help="whether to use augmentation `yes` otherwise `no`")
+
+    args, unknown = parser.parse_known_args()
+    generated_users_file = args.augmented_file_path
+    aug = args.use_augmentation
+
+    print("augmentation use or not {}".format(aug))
+    print("file path for augmented data {}".format(generated_users_file))
     # masked_R_coo, unmasked_R_coo = toy_example()
     masked_R_coo, unmasked_R_coo = get_data_from_dataloader()
+    if aug == 'yes':
+        generated_users_coo = sparse.coo_matrix(np.load(generated_users_file))
+        masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
+        unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
+        aug = True
+    else:
+        aug = False
 
     mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
     mask_csr = mask_coo.tocsr()
@@ -79,4 +102,4 @@ if __name__ == "__main__":
     
     ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15]
 
-    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks)
+    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug)
