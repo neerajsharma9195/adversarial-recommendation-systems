@@ -141,8 +141,8 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
             # todo: add check for generated ratings and missing vector using discriminator
             neighbor = torch.ceil(neighbor_rating.cpu() * neighbor_missing * 5)
             generated_neighbors[j] = neighbor.squeeze(0).cpu().detach().numpy()
+        print("generated neighbors sum {}".format(np.sum(generated_neighbors, axis=0)))
         all_generated_neighbors.append(generated_neighbors)
-        print("generating item for index {}".format(index))
     
     uid_2_generated_neighbors = dict(zip(indexes, all_generated_neighbors))
     np.save(neighbors_path, uid_2_generated_neighbors)
@@ -195,8 +195,8 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
             # todo: add check for generated ratings and missing vector using discriminator
             neighbor_missing = torch.tensor((neighbor_missing >= missing_threshold) * 1).float().cpu()
             neighbor = torch.ceil(neighbor_rating.cpu() * neighbor_missing * 5)
-
             generated_neighbors[j] = neighbor.squeeze(0).cpu().detach().numpy()
+        print("generated neighbors sum {}".format(np.sum(generated_neighbors, axis=0)))
         all_generated_neighbors.append(generated_neighbors)
         print("generating item for index {}".format(index))
     
