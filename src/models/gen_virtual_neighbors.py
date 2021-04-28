@@ -133,7 +133,7 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
         user_reviews_embedding, user_ratings, idx = dataset.__getitem__(index)
         user_reviews_embedding = torch.unsqueeze(user_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
-        generated_neighbors = np.empty((0, per_user_neighbors), np.float)
+        generated_neighbors = np.empty((per_user_neighbors, num_items), np.float)
         for j in range(per_user_neighbors):            
             neighbor_rating, neighbor_missing = generate_neighbor(user_rating_generator, user_missing_generator, idx,
                                                                   user_reviews_embedding)
@@ -188,7 +188,7 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
         item_reviews_embedding, item_ratings, idx = dataset.__getitem__(index)
         item_reviews_embedding = torch.unsqueeze(item_reviews_embedding, 0)
         idx = torch.unsqueeze(idx, 0)
-        generated_neighbors = np.empty((0, per_user_neighbors), np.float)
+        generated_neighbors = np.empty((per_user_neighbors, num_users), np.float)
         for j in range(per_user_neighbors):
             neighbor_rating, neighbor_missing = generate_neighbor(item_rating_generator, item_missing_generator, idx,
                                                                   item_reviews_embedding)
