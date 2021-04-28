@@ -89,7 +89,7 @@ if __name__ == "__main__":
         generated_users = np.load(generated_users_file, allow_pickle=True).item()
         num_ids = len(generated_users.keys())
         neighbor_per_id, neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
-        generated_users_coo = sparse.coo_matrix(np.array([v for v in generated_users.items()]).reshape(num_ids * neighbor_per_id, neighbor_dim))
+        generated_users_coo = sparse.coo_matrix(np.array([v for v in generated_users.values()]).reshape(num_ids * neighbor_per_id, neighbor_dim))
         masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
         unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
         aug = True
