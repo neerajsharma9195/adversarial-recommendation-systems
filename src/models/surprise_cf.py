@@ -3,6 +3,7 @@ import numpy as np
 from scipy import stats
 import argparse
 import math
+import time
 
 parser = argparse.ArgumentParser()
 from multiprocessing import Pool
@@ -71,6 +72,12 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
         models = pool.starmap(run_model, args)
 
     show_and_save(models, aug)
+    model = models[2]
+    start_time = time.time()
+    product_mat = np.dot(model.algo.pu, model.algo.qi.T)
+    end_time = time.time()
+    print("time taken in multiplication {}".format(end_time-start_time))
+    print("shape of mat {}".format(product_mat.shape))
 
 
 def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users_path,
