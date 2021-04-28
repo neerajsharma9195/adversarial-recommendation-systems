@@ -179,8 +179,10 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
         torch.load(os.path.join(model_params_path, "items_missing_generator_epoch_{}.pt".format(best_epoch))))
     item_rating_generator.eval()
     item_missing_generator.eval()
-    index_arr = [i for i in range(num_items)]
-    weights = np.array([1 / len(torch.nonzero(dataset.__getitem__(i)[1])) for i in range(num_items)])
+    index_weights = [(i, 1 / len(torch.nonzero(dataset.__getitem__(i)[1]))) for i in range(num_items)
+                       if len(torch.nonzero(dataset.__getitem__(i)[1])) > 0]
+    index_arr = np.array([val[0] for val in index_weights])
+    weights = np.array((val[1] for val in index_weights))
     weights /= weights.sum()
     indexes = np.random.choice(index_arr, size=total_neighbors // per_user_neighbors, replace=False, p=weights)
     all_generated_neighbors = []
