@@ -94,11 +94,10 @@ def generate_neighbor(rating_generator, missing_generator, index, review_embeddi
 
 
 def generate_virtual_users(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path, missing_threshold=0.5):
+                           best_epoch, neighbors_path, missing_threshold=0.5, use_reviews=True):
     user_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
-    use_reviews = True
     user_rating_generator = Generator(num_inputs=num_users, input_size=noise_size,
                                       item_count=num_items,
                                       c_embedding_size=user_embedding_dim,
@@ -149,11 +148,10 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
 
 
 def generate_virtual_items(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path, missing_threshold=0.5):
+                           best_epoch, neighbors_path, missing_threshold=0.5, use_reviews=True):
     item_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
-    use_reviews = True
     item_rating_generator = Generator(num_inputs=num_items, input_size=noise_size,
                                       item_count=num_users,
                                       c_embedding_size=item_embedding_dim,
@@ -181,8 +179,8 @@ def generate_virtual_items(dataset, num_users, num_items, model_params_path, tot
     item_missing_generator.eval()
     index_weights = [(i, 1 / len(torch.nonzero(dataset.__getitem__(i)[1]))) for i in range(num_items)
                        if len(torch.nonzero(dataset.__getitem__(i)[1])) > 0]
-    index_arr = np.array([val[0] for val in index_weights])
-    weights = np.array((val[1] for val in index_weights))
+    index_arr = [val[0] for val in index_weights]
+    weights = np.array([val[1] for val in index_weights])
     weights /= weights.sum()
     indexes = np.random.choice(index_arr, size=total_neighbors // per_user_neighbors, replace=False, p=weights)
     all_generated_neighbors = []
