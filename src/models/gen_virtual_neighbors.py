@@ -94,7 +94,7 @@ def generate_neighbor(rating_generator, missing_generator, index, review_embeddi
 
 
 def generate_virtual_users(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path, missing_threshold=0.8):
+                           best_epoch, neighbors_path, missing_threshold=0.5):
     user_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
@@ -149,7 +149,7 @@ def generate_virtual_users(dataset, num_users, num_items, model_params_path, tot
 
 
 def generate_virtual_items(dataset, num_users, num_items, model_params_path, total_neighbors, per_user_neighbors,
-                           best_epoch, neighbors_path, missing_threshold=0.8):
+                           best_epoch, neighbors_path, missing_threshold=0.5):
     item_embedding_dim = 128
     noise_size = 128
     review_embedding_size = 128
