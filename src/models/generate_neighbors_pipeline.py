@@ -28,6 +28,10 @@ parser.add_argument("--epoch", type=int, required=True,
 parser.add_argument("--neighbors_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/small_dataset_results/neighbors.npy',
                     type=str, required=False,
                     help="Saved path of neighbors")
+parser.add_argument("--use_reviews", default="yes", type=str, required=False,
+                    help="use reviews or not for neighbors generation")
+
+
 
 args, unknown = parser.parse_known_args()
 
@@ -56,6 +60,7 @@ total_neighbors = args.total_neighbors
 per_user_neighbors = args.per_user_neighbors
 best_epoch = args.epoch
 neighbors_path = args.neighbors_path
+use_reviews = True if args.use_reviews == 'yes' else False
 
 print("model params path {}".format(model_params_path))
 print("total neighbors need to be generated {}".format(total_neighbors))
@@ -70,11 +75,11 @@ torch.manual_seed(manualSeed)
 if args.interaction == 'users':
     print("Generating Users")
     generate_virtual_users(dataset=training_dataset, num_users=numUsers, num_items=numItems, model_params_path=model_params_path, total_neighbors=total_neighbors, per_user_neighbors=per_user_neighbors,
-                           best_epoch=best_epoch, neighbors_path=neighbors_path)
+                           best_epoch=best_epoch, neighbors_path=neighbors_path, use_reviews=use_reviews)
 elif args.interaction == 'items':
     print("Generating Items")
     generate_virtual_items(dataset=training_dataset, num_users=numUsers, num_items=numItems, model_params_path=model_params_path, total_neighbors=total_neighbors, per_user_neighbors=per_user_neighbors,
-                           best_epoch=best_epoch, neighbors_path=neighbors_path)
+                           best_epoch=best_epoch, neighbors_path=neighbors_path, use_reviews=use_reviews)
 else:
     print("***** ERROR: WRONG ARGS *******")
     exit(0)
