@@ -52,6 +52,12 @@ class Model():
 def run_model(model, trainset, testset, cold_testset):
     model.train(trainset)
     model.predict(testset, cold_testset)
+    if model.name == 'SVD':
+        start_time = time.time()
+        product_mat = np.dot(model.algo.pu, model.algo.qi.T)
+        end_time = time.time()
+        print("time taken in multiplication in run model {}".format(end_time - start_time))
+        print("shape of mat {}".format(product_mat.shape))
     model.evaluate_all_users()
     model.evaluate_cold_users()
     return model
