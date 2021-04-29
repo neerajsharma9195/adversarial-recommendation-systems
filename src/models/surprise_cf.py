@@ -1,5 +1,4 @@
 import time
-import torch
 import numpy as np
 from scipy import sparse
 import argparse
@@ -45,41 +44,38 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-    def evaluate_all_users_refined(refined_predictions):
-        print('evaluating refined users', self.name, '... ', end='')
-        start = time.time()
-        self.mae = accuracy.mae(refined_predictions, verbose=False)
-        self.rmse = accuracy.rmse(refined_predictions, verbose=False)
-        precisions_and_recalls = [precision_recall_at_k(refined_predictions, k) for k in self.ks]
-        self.MAPs, self.MARs = zip(*precisions_and_recalls)
-        end = time.time()
-        print('done in ', round(end-start), 'seconds')
+    # def evaluate_all_users_refined(refined_predictions):
+    #     print('evaluating refined users', self.name, '... ', end='')
+    #     start = time.time()
+    #     self.mae = accuracy.mae(refined_predictions, verbose=False)
+    #     self.rmse = accuracy.rmse(refined_predictions, verbose=False)
+    #     precisions_and_recalls = [precision_recall_at_k(refined_predictions, k) for k in self.ks]
+    #     self.MAPs, self.MARs = zip(*precisions_and_recalls)
+    #     end = time.time()
+    #     print('done in ', round(end-start), 'seconds')
         
-    def evaluate_cold_users_refined(refined_predictions):
-        print('evaluating refined users', self.name, '... ', end='')
-        start = time.time()
-        self.mae = accuracy.mae(refined_predictions, verbose=False)
-        self.rmse = accuracy.rmse(refined_predictions, verbose=False)
-        precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
-        self.MAPs, self.MARs = zip(*precisions_and_recalls)
-        end = time.time()
-        print('done in ', round(end-start), 'seconds')
+    # def evaluate_cold_users_refined(refined_predictions):
+    #     print('evaluating refined users', self.name, '... ', end='')
+    #     start = time.time()
+    #     self.mae = accuracy.mae(refined_predictions, verbose=False)
+    #     self.rmse = accuracy.rmse(refined_predictions, verbose=False)
+    #     precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
+    #     self.MAPs, self.MARs = zip(*precisions_and_recalls)
+    #     end = time.time()
+    #     print('done in ', round(end-start), 'seconds')
 
-def run_model(model, trainset, testset, cold_testset, aug, generated_users_file, generated_items_file):
+def run_model(model, trainset, testset, cold_testset, aug, generated_users, generated_items):
     model.train(trainset)
     model.predict(testset, cold_testset)
+    # if model.name == 'SVD' and aug:
     if model.name == 'SVD':
         print('U and I shape = ', model.algo.pu.shape, model.algo.qi.T.shape)
-        # full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
-        full_prediction_matrix = np.dot(model.algo.pu[trainset.to_inner_uid(u)], model.algo.qi[trainset.to_inner_iid(i)])
+        full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
         print('refining')
-        refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users_file,
-                   generated_items_file, .5)
+        refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users,
+                   generated_items, .5)
         print('done!')
         # trainset = train_data.build_full_trainset()
-        # testset = train_data.construct_testset(test_data.raw_ratings)
-        # cold_testset = train_data.construct_testset(cold_test_data.raw_ratings)
-        # print('done making them')
         # model.train(trainset)
         # model.predict(testset, cold_testset)
         # model.evaluate_all_users_refined(refined_predictions)
@@ -88,7 +84,7 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users_file,
     model.evaluate_cold_users()
     return model
 
-def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users_file, generated_items_file):
+def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users, generated_items):
     print(masked_R_coo.shape, unmasked_vals_coo.shape)
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     # for u, i, r in trainset.all_ratings():
@@ -101,18 +97,17 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
         # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]
 
-    for model in models:
-        model = Model(name='SVD', algo=SVD(verbose=False), ks=ks)
-        run_model(model, trainset, testset, cold_testset, aug, generated_users_file, generated_items_file)
+    for i, model in enumerate(models):
+        models[i] = run_model(model, trainset, testset, cold_testset, aug, generated_users, generated_items)
     
     show_and_save(models, aug)
 
 if __name__ == "__main__":
 
-    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews.npy',
+    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews_more_sparse.npy',
                         type=str, required=False,
                         help="Generated user data file path")
-    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_no_review.npy',
+    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_without_reviews_more_sparse.npy',
                         type=str, required=False,
                         help="Generated items data file path")
     parser.add_argument("--use_augmentation", default='no',
@@ -128,10 +123,14 @@ if __name__ == "__main__":
     print("file path for augmented users {}".format(generated_users_file))
     print("file path for augmented items {}".format(generated_items_file))
     
-    masked_R_coo, unmasked_R_coo = get_data_from_dataloader()
+    masked_R_coo, unmasked_R_coo, keep_item_idxs = get_data_from_dataloader()
+    nnzs = masked_R_coo.getnnz(axis=1)
+    warm_users = nnzs > 2
     if aug == 'yes':
         generated_users = np.load(generated_users_file, allow_pickle=True).item()
         generated_items = np.load(generated_items_file, allow_pickle=True).item()
+        for key, value in generated_users.items():
+            generated_users[key] = value[:,keep_item_idxs]
         num_user_ids = len(generated_users.keys())
         num_item_ids = len(generated_items.keys())
         user_neighbor_per_id, user_neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
@@ -145,7 +144,7 @@ if __name__ == "__main__":
         unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
 
         generated_items_vectors = np.array([v for v in generated_items.values()]).reshape(num_generated_items, item_neighbor_dim)
-        filler = np.ones((num_generated_items, num_generated_users)) * .0001
+        filler = np.zeros((num_generated_items, num_generated_users))
         generated_items_vectors = np.concatenate((generated_items_vectors, filler), axis=1)
         generated_items_coo = sparse.coo_matrix(generated_items_vectors.T)
         
@@ -155,14 +154,13 @@ if __name__ == "__main__":
     else:
         aug = False
 
-    print(masked_R_coo.shape)
     mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
     mask_csr = mask_coo.tocsr()
 
     unmasked_vals_csr = unmasked_R_coo.multiply(mask_coo)
     unmasked_vals_coo = sparse.coo_matrix(unmasked_vals_csr)
-    unmasked_cold_coo = only_cold_start(masked_R_coo, unmasked_vals_coo)
+    unmasked_cold_coo = only_cold_start(masked_R_coo, unmasked_vals_coo, warm_users)
     
     ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15]
 
-    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users_file, generated_items_file)
+    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users, generated_items)

@@ -72,17 +72,20 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
     else:
         return P, R
 
-def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users_path,
-                   neighbor_items_path, alpha):
-    neighbor_users = np.load(neighbor_users_path, allow_pickle=True).item()
-    neighbor_items = np.load(neighbor_items_path, allow_pickle=True).item()
+def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users,
+                   neighbor_items, alpha):
+    # neighbor_users = np.load(neighbor_users_path, allow_pickle=True).item()
+    # neighbor_items = np.load(neighbor_items_path, allow_pickle=True).item()
+    # for key, value in neighbor_users.items():
+    #     neighbor_users[key] = value[:,keep_item_idxs]
     num_users, num_items = predicted_augmented_rating_matrix.shape
     og_num_users, og_num_items = neighbor_items[list(neighbor_items.keys())[0]].shape[1], neighbor_users[list(neighbor_users.keys())[0]].shape[1]
     num_generated_users, num_generated_items = num_users - og_num_users, num_items - og_num_items
-    print(num_users, num_items)
-    print(og_num_users, og_num_items)
-    print(num_generated_users, num_generated_items)
-
+    # user_neighbor_per_id, user_neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
+    # item_neighbor_per_id, item_neighbor_dim = generated_items[list(generated_items.keys())[0]].shape
+    # generated_users_vectors = np.array([v for v in generated_users.values()]).reshape(num_generated_users, user_neighbor_dim)
+    # generated_items_vectors = np.array([v for v in generated_items.values()]).reshape(num_generated_items, item_neighbor_dim)
+    
     for key, val in neighbor_users.items():  # key: index of user # val: list of neighbors
         num_neighbors = val.shape[0]
         real_ratings = users_dataset[key]
@@ -92,7 +95,7 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
         weights = []
         for neighbor in val:  # calculating weights per neighbor
             neighbor = np.append(neighbor, [0]*num_generated_items)
-            print(real_rating_vector.shape, neighbor.shape)
+            print('here ', real_rating_vector.shape, neighbor.shape)
             weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
         refine_rating_vector = alpha * predicted_augmented_rating_matrix[key] + (1 - alpha) * np.sum(
             np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
@@ -212,11 +215,9 @@ def print_table(tab_data, labels, aug, cold_start=False):
 def logical_xor(a, b):
     return (a>b)+(b>a)
 
-def only_cold_start(masked_R_coo, unmasked_vals_coo):
-    nnzs = masked_R_coo.getnnz(axis=1)
-    warm_users = nnzs > 2
-    print('num users total = ', len(nnzs))
-    print('num cold start users = ', len(nnzs) - len(np.where(warm_users)[0]))
+def only_cold_start(masked_R_coo, unmasked_vals_coo, warm_users):
+    print('num users total = ', masked_R_coo.shape[0])
+    print('num cold start users = ', masked_R_coo.shape[0] - len(np.where(warm_users)[0]))
     diagonal = sparse.eye(unmasked_vals_coo.shape[0]).tocsr()
     for i in warm_users:
         diagonal[i, i] = 0
@@ -258,10 +259,15 @@ def get_data_from_dataloader():
     )
     masked_R = training_dataset.get_interactions(style="numpy")
     unmasked_R = validation_dataset.get_interactions(style="numpy")
+    masked_R = masked_R.tocsr()
+    unmasked_R = unmasked_R.tocsr()
+    keep_item_idxs = masked_R.getnnz(0)>0
+    masked_R = masked_R[:,keep_item_idxs]
+    unmasked_R = unmasked_R[:,keep_item_idxs]
     end = time.time()
     print('downloaded in {} seconds'.format(round(end-start)))
 
-    return masked_R, unmasked_R
+    return masked_R.tocoo(), unmasked_R.tocoo(), keep_item_idxs
 
 def toy_example():
     masked_R = np.array([
