@@ -137,6 +137,7 @@ wandb
 data
 results
 src/models/*.c
+src/models/.nfs*
 
 # data
 ./src/data
