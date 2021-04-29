@@ -1,4 +1,5 @@
 import time
+import torch
 import numpy as np
 from scipy import sparse
 import argparse
@@ -23,7 +24,7 @@ class Model():
     
     def predict(self, testset, cold_testset):
         self.predictions = self.algo.test(testset)
-        self.cold_predictions = self.algo.test(testset)
+        self.cold_predictions = self.algo.test(cold_testset)
 
     def evaluate_all_users(self):
         print('evaluating all users', self.name, '... ', end='')
@@ -32,8 +33,7 @@ class Model():
         self.rmse = accuracy.rmse(self.predictions, verbose=False)
         precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
         self.MAPs, self.MARs = zip(*precisions_and_recalls)
-        end = time.time()
-        print('done in ', round(end-start), 'seconds')
+        print('evaluating cold users', self.name, '... ', end='')
 
     def evaluate_cold_users(self):
         print('evaluating cold users', self.name, '... ', end='')
@@ -45,9 +45,44 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-def run_model(model, trainset, testset, cold_testset):
+    def evaluate_all_users_refined(refined_predictions):
+        print('evaluating refined users', self.name, '... ', end='')
+        start = time.time()
+        self.mae = accuracy.mae(refined_predictions, verbose=False)
+        self.rmse = accuracy.rmse(refined_predictions, verbose=False)
+        precisions_and_recalls = [precision_recall_at_k(refined_predictions, k) for k in self.ks]
+        self.MAPs, self.MARs = zip(*precisions_and_recalls)
+        end = time.time()
+        print('done in ', round(end-start), 'seconds')
+        
+    def evaluate_cold_users_refined(refined_predictions):
+        print('evaluating refined users', self.name, '... ', end='')
+        start = time.time()
+        self.mae = accuracy.mae(refined_predictions, verbose=False)
+        self.rmse = accuracy.rmse(refined_predictions, verbose=False)
+        precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
+        self.MAPs, self.MARs = zip(*precisions_and_recalls)
+        end = time.time()
+        print('done in ', round(end-start), 'seconds')
+
+def run_model(model, trainset, testset, cold_testset, aug):
     model.train(trainset)
     model.predict(testset, cold_testset)
+    print(model.name)
+    if model.name == 'SVD' and aug:
+        print('multiplying latent matrices')
+        full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
+        print('...done')
+        print('making new train and test sets')
+        refined_predictions = full_prediction_matrix
+        # trainset = train_data.build_full_trainset()
+        # testset = train_data.construct_testset(test_data.raw_ratings)
+        # cold_testset = train_data.construct_testset(cold_test_data.raw_ratings)
+        # print('done making them')
+        # model.train(trainset)
+        # model.predict(testset, cold_testset)
+        # model.evaluate_all_users_refined(refined_predictions)
+        # model.evaluate_cold_users_refined(refined_predictions)
     model.evaluate_all_users()
     model.evaluate_cold_users()
     return model
@@ -61,16 +96,25 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
         # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]
 
-    args = [(model, trainset, testset, cold_testset) for model in models]
-    with Pool() as pool:
-        models = pool.starmap(run_model, args)
+    # args = [(model, trainset, testset, cold_testset, aug) for model in models]
+    # with Pool() as pool:
+    #     models = pool.starmap(run_model, args)
+
+    for model in models:
+        model = Model(name='SVD', algo=SVD(verbose=False), ks=ks)
+        run_model(model, trainset, testset, cold_testset, aug)
     
     show_and_save(models, aug)
-
+    model = models[2]
+    start_time = time.time()
+    product_mat = np.dot(model.algo.pu, model.algo.qi.T)
+    end_time = time.time()
+    print("time taken in multiplication {}".format(end_time-start_time))
+    print("shape of mat {}".format(product_mat.shape))
 
 if __name__ == "__main__":
 
-    parser.add_argument("--augmented_file_path", default="'/mnt/nfs/scratch1/rbialik/adversarial-recommendation-systems/model_params/generated_100_user_neighbors.npy'",
+    parser.add_argument("--augmented_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews.npy',
                         type=str, required=False,
                         help="Generated data file path")
     parser.add_argument("--use_augmentation", default='no',
@@ -81,7 +125,7 @@ if __name__ == "__main__":
     generated_users_file = args.augmented_file_path
     aug = args.use_augmentation
 
-    print("augmentation use or not {}".format(aug))
+    print("augmentation: {}".format(aug))
     print("file path for augmented data {}".format(generated_users_file))
     # masked_R_coo, unmasked_R_coo = toy_example()
     masked_R_coo, unmasked_R_coo = get_data_from_dataloader()

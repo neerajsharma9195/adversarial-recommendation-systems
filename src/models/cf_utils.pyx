@@ -1,6 +1,7 @@
 # cython: language_level=3
 import os
 import time
+import math
 import progressbar
 import numpy as np
 import pandas as pd
@@ -10,7 +11,6 @@ from surprise import Dataset, accuracy, Reader, Trainset
 from collections import defaultdict
 from tabulate import tabulate
 from src.preprocessing.dataloader import UserDataset
-
 
 #################################################################
 #                           Evaluation                          #
@@ -72,6 +72,50 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
     else:
         return P, R
 
+# def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users_path,
+#                    neighbor_items_path, alpha):
+#     neighbor_users = np.load(neighbor_users_path, allow_pickle=True)
+#     neighbor_items = np.load(neighbor_items_path, allow_pickle=True)
+
+#     for key, val in neighbor_users.item().items():  # key: index of user # val: list of neighbors
+#         real_rating_vector = users_dataset[key][1].numpy()  # real rating vector
+#         weights = []
+#         num_neighbors = val.shape[0]
+#         for neighbor in val:  # calculating weights per neighbor
+#             weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
+#         predicted_augmented_rating_vector = np.dot(latent_users[key], latent_items)
+#         refine_rating_vector = alpha * predicted_augmented_rating_vector + (1 - alpha) * np.sum(
+#             np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
+#         for i in range(len(refine_rating_vector)):
+#             if refine_rating_vector[i] < 0:
+#                 refine_rating_vector[i] = 0.0
+#             else:
+#                 refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+
+#         predicted_augmented_rating_matrix[key] = refine_rating_vector
+
+#     for key, val in neighbor_items.item().items():  # key: index of user # val: list of neighbors
+#         real_rating_vector = items_dataset[key][1].numpy()  # real rating vector
+#         weights = []
+#         num_neighbors = val.shape[0]
+#         for neighbor in val:  # calculating weights per neighbor
+#             weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
+
+#         predicted_item_vector = []
+#         n, m = predicted_augmented_rating_matrix.shape
+#         for i in range(n):
+#             predicted_item_vector.append(predicted_augmented_rating_matrix[i][key])
+
+#         refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(
+#             np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
+#         for i in range(len(refine_rating_vector)):
+#             if refine_rating_vector[i] < 0:
+#                 refine_rating_vector[i] = 0.0
+#             else:
+#                 refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+#         for i in range(n):
+#             predicted_augmented_rating_matrix[i][key] = refine_rating_vector[i]
+#     return predicted_augmented_rating_matrix
 
 #################################################################
 #                   Printing and Plotting                       #
