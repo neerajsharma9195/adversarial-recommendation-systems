@@ -93,14 +93,21 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
         for (k, v) in real_ratings:
             real_rating_vector[k] = v
             
-        weights = []
-        for i, neighbor in enumerate(val):  # calculating weights per neighbor
-            neighbor = np.append(neighbor, [0]*num_generated_items)
-            val[i] = neighbor
-            weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
-        
-        refine_rating_vector = alpha * predicted_augmented_rating_matrix[key] + (1 - alpha) * np.sum(
-            np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
+        weights = np.zeros((num_neighbors, 1))
+        expanded_val = np.zeros((num_neighbors, num_items))
+        expanded_val[:, :og_num_items] = val
+        for i, neighbor in enumerate(expanded_val):
+            weights[i] = stats.pearsonr(real_rating_vector, neighbor)[0]
+
+        refine_rating_vector = alpha * predicted_augmented_rating_matrix[key] + \
+                                    (1 - alpha) * np.sum(weights * expanded_val, axis=0)
+
+        """
+        weights:                                 num_neighbors x 1
+        val:                                     num_neighbors x og_num_items -> num_neighbors x num_items
+        np.sum(weights * val, axis=0):           1 x og_num_items
+        predicted_augmented_rating_matrix[key]:  1 x num_items
+        """
         
         for i in range(len(refine_rating_vector)):
             if refine_rating_vector[i] < 0:
@@ -114,20 +121,21 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
         num_neighbors = val.shape[0]
         real_ratings = items_dataset[key]  
         real_rating_vector = np.zeros(num_users)
-        for (key, value) in real_ratings:
-            real_rating_vector[key] = value
-        weights = []
-        for neighbor in val:  # calculating weights per neighbor
-            neighbor = np.append(neighbor, [0] * num_generated_users)
-            weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
+        for (k, v) in real_ratings:
+            real_rating_vector[k] = v
 
-        predicted_item_vector = []
+        weights = np.zeros((num_neighbors, 1))
+        expanded_val = np.zeros((num_neighbors, num_users))
+        expanded_val[:, :og_num_users] = val
+
+        for i, neighbor in enumerate(expanded_val):  # calculating weights per neighbor
+            weights[i] = stats.pearsonr(real_rating_vector, neighbor)[0]
+
         n, m = predicted_augmented_rating_matrix.shape
-        for i in range(n):
-            predicted_item_vector.append(predicted_augmented_rating_matrix[i][key])
+        print(key)
+        predicted_item_vector = predicted_augmented_rating_matrix[:,key].T
 
-        refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(
-            np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
+        refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(weights * expanded_val, axis=0)
         for i in range(len(refine_rating_vector)):
             if refine_rating_vector[i] < 0:
                 refine_rating_vector[i] = 0.0
