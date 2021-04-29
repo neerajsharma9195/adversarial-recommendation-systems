@@ -67,8 +67,8 @@ class Model():
 def run_model(model, trainset, testset, cold_testset, aug, generated_users, generated_items):
     model.train(trainset)
     model.predict(testset, cold_testset)
-    # if model.name == 'SVD' and aug:
-    if model.name == 'SVD':
+    if model.name == 'SVD' and aug:
+    # if model.name == 'SVD':
         print('U and I shape = ', model.algo.pu.shape, model.algo.qi.T.shape)
         full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
         print('refining')
