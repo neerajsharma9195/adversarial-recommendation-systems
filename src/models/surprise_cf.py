@@ -68,8 +68,10 @@ class Model():
 def run_model(model, trainset, testset, cold_testset, aug, generated_users_file, generated_items_file):
     model.train(trainset)
     model.predict(testset, cold_testset)
-    if model.name == 'SVD' and aug:
-        full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
+    if model.name == 'SVD':
+        print('U and I shape = ', model.algo.pu.shape, model.algo.qi.T.shape)
+        # full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
+        full_prediction_matrix = np.dot(model.algo.pu[trainset.to_inner_uid(u)], model.algo.qi[trainset.to_inner_iid(i)])
         print('refining')
         refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users_file,
                    generated_items_file, .5)
@@ -87,7 +89,11 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users_file,
     return model
 
 def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users_file, generated_items_file):
+    print(masked_R_coo.shape, unmasked_vals_coo.shape)
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
+    # for u, i, r in trainset.all_ratings():
+    #     print(u, i, r)
+    #     print(trainset.to_raw_uid(u), trainset.to_raw_iid(i))
     models = [
         # Model(name='random', algo=NormalPredictor(), ks=ks),
         # Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
@@ -126,15 +132,30 @@ if __name__ == "__main__":
     if aug == 'yes':
         generated_users = np.load(generated_users_file, allow_pickle=True).item()
         generated_items = np.load(generated_items_file, allow_pickle=True).item()
-        num_ids = len(generated_users.keys())
-        neighbor_per_id, neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
-        generated_users_coo = sparse.coo_matrix(np.array([v for v in generated_users.values()]).reshape(num_ids * neighbor_per_id, neighbor_dim))
+        num_user_ids = len(generated_users.keys())
+        num_item_ids = len(generated_items.keys())
+        user_neighbor_per_id, user_neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
+        item_neighbor_per_id, item_neighbor_dim = generated_items[list(generated_items.keys())[0]].shape
+        num_generated_users = num_user_ids * user_neighbor_per_id
+        num_generated_items = num_item_ids * item_neighbor_per_id
+
+        generated_users_vectors = np.array([v for v in generated_users.values()]).reshape(num_generated_users, user_neighbor_dim)
+        generated_users_coo = sparse.coo_matrix(generated_users_vectors)
         masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
         unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
+
+        generated_items_vectors = np.array([v for v in generated_items.values()]).reshape(num_generated_items, item_neighbor_dim)
+        filler = np.ones((num_generated_items, num_generated_users)) * .0001
+        generated_items_vectors = np.concatenate((generated_items_vectors, filler), axis=1)
+        generated_items_coo = sparse.coo_matrix(generated_items_vectors.T)
+        
+        masked_R_coo = sparse.hstack([masked_R_coo, generated_items_coo])
+        unmasked_R_coo = sparse.hstack([unmasked_R_coo, generated_items_coo])
         aug = True
     else:
         aug = False
 
+    print(masked_R_coo.shape)
     mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
     mask_csr = mask_coo.tocsr()
 
