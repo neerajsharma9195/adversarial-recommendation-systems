@@ -65,16 +65,15 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-def run_model(model, trainset, testset, cold_testset, aug):
+def run_model(model, trainset, testset, cold_testset, aug, generated_users_file, generated_items_file):
     model.train(trainset)
     model.predict(testset, cold_testset)
-    print(model.name)
     if model.name == 'SVD' and aug:
-        print('multiplying latent matrices')
         full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
-        print('...done')
-        print('making new train and test sets')
-        refined_predictions = full_prediction_matrix
+        print('refining')
+        refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users_file,
+                   generated_items_file, .5)
+        print('done!')
         # trainset = train_data.build_full_trainset()
         # testset = train_data.construct_testset(test_data.raw_ratings)
         # cold_testset = train_data.construct_testset(cold_test_data.raw_ratings)
@@ -87,50 +86,46 @@ def run_model(model, trainset, testset, cold_testset, aug):
     model.evaluate_cold_users()
     return model
 
-def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug):
+def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users_file, generated_items_file):
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     models = [
-        Model(name='random', algo=NormalPredictor(), ks=ks),
-        Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
+        # Model(name='random', algo=NormalPredictor(), ks=ks),
+        # Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
         Model(name='SVD', algo=SVD(verbose=False), ks=ks),
         # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]
 
-    # args = [(model, trainset, testset, cold_testset, aug) for model in models]
-    # with Pool() as pool:
-    #     models = pool.starmap(run_model, args)
-
     for model in models:
         model = Model(name='SVD', algo=SVD(verbose=False), ks=ks)
-        run_model(model, trainset, testset, cold_testset, aug)
+        run_model(model, trainset, testset, cold_testset, aug, generated_users_file, generated_items_file)
     
     show_and_save(models, aug)
-    model = models[2]
-    start_time = time.time()
-    product_mat = np.dot(model.algo.pu, model.algo.qi.T)
-    end_time = time.time()
-    print("time taken in multiplication {}".format(end_time-start_time))
-    print("shape of mat {}".format(product_mat.shape))
 
 if __name__ == "__main__":
 
-    parser.add_argument("--augmented_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews.npy',
+    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews.npy',
                         type=str, required=False,
-                        help="Generated data file path")
+                        help="Generated user data file path")
+    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_no_review.npy',
+                        type=str, required=False,
+                        help="Generated items data file path")
     parser.add_argument("--use_augmentation", default='no',
                         type=str, required=False,
                         help="whether to use augmentation `yes` otherwise `no`")
 
     args, unknown = parser.parse_known_args()
-    generated_users_file = args.augmented_file_path
+    generated_users_file = args.augmented_users_file_path
+    generated_items_file = args.augmented_items_file_path
     aug = args.use_augmentation
 
     print("augmentation: {}".format(aug))
-    print("file path for augmented data {}".format(generated_users_file))
-    # masked_R_coo, unmasked_R_coo = toy_example()
+    print("file path for augmented users {}".format(generated_users_file))
+    print("file path for augmented items {}".format(generated_items_file))
+    
     masked_R_coo, unmasked_R_coo = get_data_from_dataloader()
     if aug == 'yes':
         generated_users = np.load(generated_users_file, allow_pickle=True).item()
+        generated_items = np.load(generated_items_file, allow_pickle=True).item()
         num_ids = len(generated_users.keys())
         neighbor_per_id, neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
         generated_users_coo = sparse.coo_matrix(np.array([v for v in generated_users.values()]).reshape(num_ids * neighbor_per_id, neighbor_dim))
@@ -149,4 +144,4 @@ if __name__ == "__main__":
     
     ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15]
 
-    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug)
+    run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users_file, generated_items_file)

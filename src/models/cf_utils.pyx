@@ -6,7 +6,7 @@ import progressbar
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy import sparse
+from scipy import sparse, stats
 from surprise import Dataset, accuracy, Reader, Trainset
 from collections import defaultdict
 from tabulate import tabulate
@@ -72,50 +72,64 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
     else:
         return P, R
 
-# def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users_path,
-#                    neighbor_items_path, alpha):
-#     neighbor_users = np.load(neighbor_users_path, allow_pickle=True)
-#     neighbor_items = np.load(neighbor_items_path, allow_pickle=True)
+def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users_path,
+                   neighbor_items_path, alpha):
+    neighbor_users = np.load(neighbor_users_path, allow_pickle=True).item()
+    neighbor_items = np.load(neighbor_items_path, allow_pickle=True).item()
+    num_users, num_items = predicted_augmented_rating_matrix.shape
+    og_num_users, og_num_items = neighbor_items[list(neighbor_items.keys())[0]].shape[1], neighbor_users[list(neighbor_users.keys())[0]].shape[1]
+    num_generated_users, num_generated_items = num_users - og_num_users, num_items - og_num_items
+    print(num_users, num_items)
+    print(og_num_users, og_num_items)
+    print(num_generated_users, num_generated_items)
 
-#     for key, val in neighbor_users.item().items():  # key: index of user # val: list of neighbors
-#         real_rating_vector = users_dataset[key][1].numpy()  # real rating vector
-#         weights = []
-#         num_neighbors = val.shape[0]
-#         for neighbor in val:  # calculating weights per neighbor
-#             weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
-#         predicted_augmented_rating_vector = np.dot(latent_users[key], latent_items)
-#         refine_rating_vector = alpha * predicted_augmented_rating_vector + (1 - alpha) * np.sum(
-#             np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
-#         for i in range(len(refine_rating_vector)):
-#             if refine_rating_vector[i] < 0:
-#                 refine_rating_vector[i] = 0.0
-#             else:
-#                 refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+    for key, val in neighbor_users.items():  # key: index of user # val: list of neighbors
+        num_neighbors = val.shape[0]
+        real_ratings = users_dataset[key]
+        real_rating_vector = np.zeros(num_items)
+        for (key, value) in real_ratings:
+            real_rating_vector[key] = value
+        weights = []
+        for neighbor in val:  # calculating weights per neighbor
+            neighbor = np.append(neighbor, [0]*num_generated_items)
+            print(real_rating_vector.shape, neighbor.shape)
+            weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
+        refine_rating_vector = alpha * predicted_augmented_rating_matrix[key] + (1 - alpha) * np.sum(
+            np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
+        for i in range(len(refine_rating_vector)):
+            if refine_rating_vector[i] < 0:
+                refine_rating_vector[i] = 0.0
+            else:
+                refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
 
-#         predicted_augmented_rating_matrix[key] = refine_rating_vector
+        predicted_augmented_rating_matrix[key] = refine_rating_vector
 
-#     for key, val in neighbor_items.item().items():  # key: index of user # val: list of neighbors
-#         real_rating_vector = items_dataset[key][1].numpy()  # real rating vector
-#         weights = []
-#         num_neighbors = val.shape[0]
-#         for neighbor in val:  # calculating weights per neighbor
-#             weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
+    for key, val in neighbor_items.items():  # key: index of user # val: list of neighbors
+        num_neighbors = val.shape[0]
+        real_ratings = items_dataset[key]  
+        real_rating_vector = np.zeros(num_users)
+        for (key, value) in real_ratings:
+            real_rating_vector[key] = value
+        weights = []
+        for neighbor in val:  # calculating weights per neighbor
+            neighbor = np.append(neighbor, [0] * num_generated_users)
+            weights.append(stats.pearsonr(real_rating_vector, neighbor)[0])
 
-#         predicted_item_vector = []
-#         n, m = predicted_augmented_rating_matrix.shape
-#         for i in range(n):
-#             predicted_item_vector.append(predicted_augmented_rating_matrix[i][key])
+        predicted_item_vector = []
+        n, m = predicted_augmented_rating_matrix.shape
+        for i in range(n):
+            predicted_item_vector.append(predicted_augmented_rating_matrix[i][key])
 
-#         refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(
-#             np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
-#         for i in range(len(refine_rating_vector)):
-#             if refine_rating_vector[i] < 0:
-#                 refine_rating_vector[i] = 0.0
-#             else:
-#                 refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
-#         for i in range(n):
-#             predicted_augmented_rating_matrix[i][key] = refine_rating_vector[i]
-#     return predicted_augmented_rating_matrix
+        refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(
+            np.array(weights).reshape(num_neighbors, 1) * val, axis=0)
+        for i in range(len(refine_rating_vector)):
+            if refine_rating_vector[i] < 0:
+                refine_rating_vector[i] = 0.0
+            else:
+                refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+        for i in range(n):
+            predicted_augmented_rating_matrix[i][key] = refine_rating_vector[i]
+    return predicted_augmented_rating_matrix
 
 #################################################################
 #                   Printing and Plotting                       #
