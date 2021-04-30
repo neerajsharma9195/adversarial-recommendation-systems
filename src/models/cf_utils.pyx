@@ -74,17 +74,11 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
 
 def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users,
                    neighbor_items, alpha):
-    # neighbor_users = np.load(neighbor_users_path, allow_pickle=True).item()
-    # neighbor_items = np.load(neighbor_items_path, allow_pickle=True).item()
-    # for key, value in neighbor_users.items():
-    #     neighbor_users[key] = value[:,keep_item_idxs]
+    print('refining...', end='')
+    start = time.time()
     num_users, num_items = predicted_augmented_rating_matrix.shape
     og_num_users, og_num_items = neighbor_items[list(neighbor_items.keys())[0]].shape[1], neighbor_users[list(neighbor_users.keys())[0]].shape[1]
     num_generated_users, num_generated_items = num_users - og_num_users, num_items - og_num_items
-    # user_neighbor_per_id, user_neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
-    # item_neighbor_per_id, item_neighbor_dim = generated_items[list(generated_items.keys())[0]].shape
-    # generated_users_vectors = np.array([v for v in generated_users.values()]).reshape(num_generated_users, user_neighbor_dim)
-    # generated_items_vectors = np.array([v for v in generated_items.values()]).reshape(num_generated_items, item_neighbor_dim)
     
     for key, val in neighbor_users.items():  # key: index of user # val: list of neighbors
         num_neighbors = val.shape[0]
@@ -132,7 +126,6 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
             weights[i] = stats.pearsonr(real_rating_vector, neighbor)[0]
 
         n, m = predicted_augmented_rating_matrix.shape
-        print(key)
         predicted_item_vector = predicted_augmented_rating_matrix[:,key].T
 
         refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(weights * expanded_val, axis=0)
@@ -143,6 +136,8 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
                 refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
         for i in range(n):
             predicted_augmented_rating_matrix[i][key] = refine_rating_vector[i]
+    end = time.time()
+    print(f'done in {round(end-start)} seconds')
     return predicted_augmented_rating_matrix
 
 #################################################################

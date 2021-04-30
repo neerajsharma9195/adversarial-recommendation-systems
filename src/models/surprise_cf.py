@@ -7,12 +7,15 @@ parser = argparse.ArgumentParser()
 from multiprocessing import Pool
 from surprise import accuracy, SVD, NormalPredictor, KNNBasic, BaselineOnly
 from src.models.cf_utils import *
+from src.models.mf_metrics import *
 
 class Model():
-    def __init__(self, name, algo, ks):
+    def __init__(self, name, algo, ks, ground_truth, mask):
         self.name = name
         self.algo = algo
         self.ks = ks
+        self.mask = mask
+        self.ground_truth = ground_truth
 
     def train(self, trainset):
         print('training ', self.name, '... ', end='')
@@ -44,23 +47,18 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-    # def evaluate_all_users_refined(refined_predictions):
-    #     print('evaluating refined users', self.name, '... ', end='')
-    #     start = time.time()
-    #     self.mae = accuracy.mae(refined_predictions, verbose=False)
-    #     self.rmse = accuracy.rmse(refined_predictions, verbose=False)
-    #     precisions_and_recalls = [precision_recall_at_k(refined_predictions, k) for k in self.ks]
-    #     self.MAPs, self.MARs = zip(*precisions_and_recalls)
-    #     end = time.time()
-    #     print('done in ', round(end-start), 'seconds')
+    def evaluate_all_users_refined(refined_predictions):
+        print('evaluating refined users', self.name, '... ', end='')
+        start = time.time()
+        self.mae, self.rmse = MAE_and_RMSE(refined_predictions, self.ground_truth, self.mask)
+        self.MAPs, self.MARs = getPandR(self.ks, refined_predictions, self.ground_truth, self.mask)
+        end = time.time()
+        print('done in ', round(end-start), 'seconds')
         
-    # def evaluate_cold_users_refined(refined_predictions):
+    # def evaluate_cold_users_refined(refined_predictions, ground_truth_csr, mask_coo):
     #     print('evaluating refined users', self.name, '... ', end='')
     #     start = time.time()
-    #     self.mae = accuracy.mae(refined_predictions, verbose=False)
-    #     self.rmse = accuracy.rmse(refined_predictions, verbose=False)
-    #     precisions_and_recalls = [precision_recall_at_k(self.predictions, k) for k in self.ks]
-    #     self.MAPs, self.MARs = zip(*precisions_and_recalls)
+
     #     end = time.time()
     #     print('done in ', round(end-start), 'seconds')
 
@@ -68,32 +66,22 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
     model.train(trainset)
     model.predict(testset, cold_testset)
     if model.name == 'SVD' and aug:
-    # if model.name == 'SVD':
         print('U and I shape = ', model.algo.pu.shape, model.algo.qi.T.shape)
         full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
-        print('refining')
         refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users,
                    generated_items, .5)
-        print('done!')
-        # trainset = train_data.build_full_trainset()
-        # model.train(trainset)
-        # model.predict(testset, cold_testset)
-        # model.evaluate_all_users_refined(refined_predictions)
+        model.evaluate_all_users_refined(refined_predictions)
         # model.evaluate_cold_users_refined(refined_predictions)
     model.evaluate_all_users()
     model.evaluate_cold_users()
     return model
 
 def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users, generated_items):
-    print(masked_R_coo.shape, unmasked_vals_coo.shape)
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
-    # for u, i, r in trainset.all_ratings():
-    #     print(u, i, r)
-    #     print(trainset.to_raw_uid(u), trainset.to_raw_iid(i))
     models = [
         # Model(name='random', algo=NormalPredictor(), ks=ks),
         # Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
-        Model(name='SVD', algo=SVD(verbose=False), ks=ks),
+        Model(name='SVD', algo=SVD(verbose=False), ks=ks, ground_truth=unmasked_vals_coo, mask=mask_coo),
         # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]
 
@@ -124,8 +112,11 @@ if __name__ == "__main__":
     print("file path for augmented items {}".format(generated_items_file))
     
     masked_R_coo, unmasked_R_coo, keep_item_idxs = get_data_from_dataloader()
+    mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
+
     nnzs = masked_R_coo.getnnz(axis=1)
     warm_users = nnzs > 2
+    
     if aug == 'yes':
         generated_users = np.load(generated_users_file, allow_pickle=True).item()
         generated_items = np.load(generated_items_file, allow_pickle=True).item()
@@ -140,23 +131,26 @@ if __name__ == "__main__":
 
         generated_users_vectors = np.array([v for v in generated_users.values()]).reshape(num_generated_users, user_neighbor_dim)
         generated_users_coo = sparse.coo_matrix(generated_users_vectors)
+        false_coo = sparse.coo_matrix(np.zeros_like(generated_users_vectors, dtype=bool))
         masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
         unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
+        mask_coo = sparse.vstack([mask_coo, false_coo])
 
         generated_items_vectors = np.array([v for v in generated_items.values()]).reshape(num_generated_items, item_neighbor_dim)
         filler = np.zeros((num_generated_items, num_generated_users))
         generated_items_vectors = np.concatenate((generated_items_vectors, filler), axis=1)
+        false_coo = sparse.coo_matrix(np.zeros_like(generated_items_vectors.T, dtype=bool))
         generated_items_coo = sparse.coo_matrix(generated_items_vectors.T)
         
         masked_R_coo = sparse.hstack([masked_R_coo, generated_items_coo])
         unmasked_R_coo = sparse.hstack([unmasked_R_coo, generated_items_coo])
+        mask_coo = sparse.hstack([mask_coo, false_coo])
         aug = True
     else:
         aug = False
+        generated_users, generated_items = None, None
 
-    mask_coo = sparse.coo_matrix(logical_xor(masked_R_coo, unmasked_R_coo))
     mask_csr = mask_coo.tocsr()
-
     unmasked_vals_csr = unmasked_R_coo.multiply(mask_coo)
     unmasked_vals_coo = sparse.coo_matrix(unmasked_vals_csr)
     unmasked_cold_coo = only_cold_start(masked_R_coo, unmasked_vals_coo, warm_users)
