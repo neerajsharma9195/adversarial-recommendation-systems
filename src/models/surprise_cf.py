@@ -10,7 +10,7 @@ from src.models.cf_utils import *
 from src.models.mf_metrics import *
 
 class Model():
-    def __init__(self, name, algo, ks, ground_truth, mask):
+    def __init__(self, name, algo, ks, ground_truth=None, mask=None):
         self.name = name
         self.algo = algo
         self.ks = ks
@@ -47,7 +47,7 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-    def evaluate_all_users_refined(refined_predictions):
+    def evaluate_all_users_refined(self, refined_predictions):
         print('evaluating refined users', self.name, '... ', end='')
         start = time.time()
         self.mae, self.rmse = MAE_and_RMSE(refined_predictions, self.ground_truth, self.mask)
@@ -66,7 +66,6 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
     model.train(trainset)
     model.predict(testset, cold_testset)
     if model.name == 'SVD' and aug:
-        print('U and I shape = ', model.algo.pu.shape, model.algo.qi.T.shape)
         full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
         refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users,
                    generated_items, .5)
@@ -79,8 +78,8 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
 def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users, generated_items):
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     models = [
-        # Model(name='random', algo=NormalPredictor(), ks=ks),
-        # Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
+        Model(name='random', algo=NormalPredictor(), ks=ks),
+        Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
         Model(name='SVD', algo=SVD(verbose=False), ks=ks, ground_truth=unmasked_vals_coo, mask=mask_coo),
         # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]

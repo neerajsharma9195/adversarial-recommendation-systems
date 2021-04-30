@@ -1,5 +1,4 @@
 import time
-import progressbar
 import numpy as np
 from scipy import sparse
 
@@ -11,11 +10,18 @@ def sort_csr(m):
     tuples = zip(m.row, m.col, m.data)
     return sorted(tuples, key=lambda x: x[2], reverse=True)
 
-def getPandR(ks, predictions_coo, predictions_csr, ground_truth_csr, mask_csr):
-    assert(predictions_coo.nnz == mask_csr.nnz)
+def getPandR(ks, predictions, ground_truth_coo, mask_coo):
+    print(predictions.shape, mask_coo.toarray().shape)
+    predictions = predictions * mask_coo.toarray()
+    predictions_csr = sparse.csr_matrix(predictions)
+    predictions_coo = predictions_csr.tocoo()
+    ground_truth_csr = ground_truth_coo.tocsr()
+    mask_csr = mask_coo.tocsr()
+    # assert(predictions_coo.nnz == mask_csr.nnz)
+    print('nnz = ', predictions_coo.nnz, mask_csr.nnz)
     sorted_predictions = sort_coo(predictions_coo)
     precisions, recalls = [], []
-    assert(len(sorted_predictions) == mask_csr.nnz)
+    # assert(len(sorted_predictions) == mask_csr.nnz)
     for k in ks:
         true_pos, false_pos, true_neg, false_neg = 0, 0, 0, 0
         for i, j, v in sorted_predictions[:k]:
@@ -32,7 +38,6 @@ def getPandR(ks, predictions_coo, predictions_csr, ground_truth_csr, mask_csr):
         precisions.append(round(precision, 8))
         recalls.append(round(recall, 8))
     return precisions, recalls
-
 
 def MAE_and_RMSE(predictions, ground_truth_coo, mask_coo):
     predictions_csr = sparse.csr_matrix(predictions)
