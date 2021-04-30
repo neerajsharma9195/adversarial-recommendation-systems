@@ -72,6 +72,15 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
     else:
         return P, R
 
+def get_full_prediction_matrix(algo, trainset):
+    full_prediction_matrix = np.dot(algo.pu, algo.qi.T)
+    predictions = np.zeros_like(full_prediction_matrix)
+    num_users, num_items = full_prediction_matrix.shape
+    for u in range(num_users):
+        for i in range(num_items):
+            predictions[u,i] = full_prediction_matrix[u,i]+algo.bu[u]+algo.bi[i] + trainset.global_mean
+    return predictions
+
 def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users,
                    neighbor_items, alpha):
     print('refining...', end='')
@@ -86,7 +95,7 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
         real_rating_vector = np.zeros(num_items)
         for (k, v) in real_ratings:
             real_rating_vector[k] = v
-            
+
         weights = np.zeros((num_neighbors, 1))
         expanded_val = np.zeros((num_neighbors, num_items))
         expanded_val[:, :og_num_items] = val
@@ -151,9 +160,9 @@ def show_and_save(models, aug):
     MAPs = [model.MAPs for model in models]
     MARs = [model.MARs for model in models]
 
-    cold_errors = [[model.cold_mae, model.cold_rmse] for model in models]
-    cold_MAPs = [model.cold_MAPs for model in models]
-    cold_MARs = [model.cold_MARs for model in models]
+    # cold_errors = [[model.cold_mae, model.cold_rmse] for model in models]
+    # cold_MAPs = [model.cold_MAPs for model in models]
+    # cold_MARs = [model.cold_MARs for model in models]
 
     os.makedirs('results', exist_ok=True)
     os.makedirs('results/cold_start', exist_ok=True)
@@ -165,11 +174,11 @@ def show_and_save(models, aug):
     tab_data = [[labels[i]] + errors[i] for i in range(len(labels))]
     print_table(tab_data, error_labels, aug)
 
-    plot_MAP(cold_MAPs, labels, ks, aug, cold_start=True)
-    plot_MAR(cold_MARs, labels, ks, aug, cold_start=True)
-    error_labels = ['cold_users'] + ['MAE', 'RMSE']
-    tab_data = [[labels[i]] + cold_errors[i] for i in range(len(labels))]
-    print_table(tab_data, error_labels, aug, cold_start=True)
+    # plot_MAP(cold_MAPs, labels, ks, aug, cold_start=True)
+    # plot_MAR(cold_MARs, labels, ks, aug, cold_start=True)
+    # error_labels = ['cold_users'] + ['MAE', 'RMSE']
+    # tab_data = [[labels[i]] + cold_errors[i] for i in range(len(labels))]
+    # print_table(tab_data, error_labels, aug, cold_start=True)
 
 def plot_MAP(MAPs, labels, ks, aug, cold_start=False):
     for i in range(len(MAPs)):

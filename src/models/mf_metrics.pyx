@@ -11,11 +11,8 @@ def sort_csr(m):
     return sorted(tuples, key=lambda x: x[2], reverse=True)
 
 def getPandR(ks, predictions, ground_truth_coo, mask_coo):
-    print(predictions.shape, mask_coo.toarray().shape)
-    predictions = predictions * mask_coo.toarray()
-    print(predictions[:100][:100])
-    predictions_csr = sparse.csr_matrix(predictions)
-    predictions_coo = predictions_csr.tocoo()
+    predictions_coo = sparse.coo_matrix(predictions * mask_coo.toarray())
+    predictions_csr = predictions_coo.tocsr()
     ground_truth_csr = ground_truth_coo.tocsr()
     mask_csr = mask_coo.tocsr()
     # assert(predictions_coo.nnz == mask_csr.nnz)
@@ -41,7 +38,8 @@ def getPandR(ks, predictions, ground_truth_coo, mask_coo):
     return precisions, recalls
 
 def MAE_and_RMSE(predictions, ground_truth_coo, mask_coo):
-    predictions_csr = sparse.csr_matrix(predictions)
+    predictions_coo = sparse.coo_matrix(predictions * mask_coo.toarray())
+    predictions_csr = predictions_coo.tocsr()
     ground_truth_csr = ground_truth_coo.tocsr()
     mae, rmse = 0, 0
     total = mask_coo.nnz
