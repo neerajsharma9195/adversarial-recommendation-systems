@@ -47,21 +47,22 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-    def evaluate_all_users_refined(self, refined_predictions):
+    def evaluate_all_users_refined(self):
         print('evaluating refined users', self.name, '... ', end='')
         start = time.time()
-        self.mae, self.rmse = MAE_and_RMSE(refined_predictions, self.ground_truth, self.mask)
-        self.MAPs, self.MARs = getPandR(self.ks, refined_predictions, self.ground_truth, self.mask)
+        self.mae, self.rmse = MAE_and_RMSE(self.refined_predictions, self.ground_truth, self.mask)
+        self.MAPs, self.MARs = getPandR(self.ks, self.refined_predictions, self.ground_truth, self.mask)
         end = time.time()
         print('done in ', round(end-start), 'seconds')
-        
-    # def evaluate_cold_users_refined(self, refined_predictions):
-    #     print('evaluating refined users', self.name, '... ', end='')
-    #     start = time.time()
-    #     self.cold_mae, self.cold_rmse = MAE_and_RMSE(refined_predictions, self.ground_truth_cold, self.mask)
-    #     self.cold_MAPs, self.cold_MARs = getPandR(self.ks, refined_predictions, self.ground_truth_cold, self.mask)
-    #     end = time.time()
-    #     print('done in ', round(end-start), 'seconds')
+
+    def evaluate_cold_users_refined(self, refined_predictions):
+        print('NOT COLD USERS -- UN-REFINED USERS')
+        print('evaluating refined users', self.name, '... ', end='')
+        start = time.time()
+        self.cold_mae, self.cold_rmse = MAE_and_RMSE(self.full_prediction_matrix, self.ground_truth_cold, self.mask)
+        self.cold_MAPs, self.cold_MARs = getPandR(self.ks, self.full_prediction_matrix, self.ground_truth_cold, self.mask)
+        end = time.time()
+        print('done in ', round(end-start), 'seconds')
 
     def get_diy_predictions(self, global_mean):
         self.full_prediction_matrix = np.dot(self.algo.pu, self.algo.qi.T)
@@ -74,15 +75,15 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
     model.train(trainset)
     model.predict(testset, cold_testset)
     if model.name == 'SVD':
-        # full_prediction_matrix = get_full_prediction_matrix(model.algo, trainset)
-        # refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users,
-        #            generated_items, .5)
-
-        # model.evaluate_all_users_refined(refined_predictions)
-        # model.evaluate_cold_users_refined(refined_predictions)
+        
+        model.get_diy_predictions(trainset.global_mean)
+        model.refined_predictions =  refine_ratings(trainset.ur, trainset.ir, model.full_prediction_matrix, generated_users,
+                   generated_items, .5)
+        
+        model.evaluate_all_users_refined()
+        model.evaluate_cold_users_refined()
         model.evaluate_all_users()
 
-        model.get_diy_predictions(trainset.global_mean)
         mae, rmse = MAE_and_RMSE(model.full_prediction_matrix, model.ground_truth, model.mask)
         maps, mars = getPandR(model.ks, model.full_prediction_matrix, model.ground_truth, model.mask)
         print(mae, model.mae)
@@ -97,8 +98,8 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
 def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, ks, aug, generated_users, generated_items):
     trainset, testset, cold_testset = setup(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo)
     models = [
-        Model(name='random', algo=NormalPredictor(), ks=ks),
-        Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
+        # Model(name='random', algo=NormalPredictor(), ks=ks),
+        # Model(name='bias only', algo=BaselineOnly(verbose=False, bsl_options = {'method': 'sgd','learning_rate': .00005,}), ks=ks),
         Model(name='SVD', algo=SVD(verbose=False), ks=ks, ground_truth=unmasked_vals_coo, mask=mask_coo, ground_truth_cold=unmasked_cold_coo),
         # Model(name='KNN', algo=KNNBasic(verbose=False), ks=ks),
         ]
