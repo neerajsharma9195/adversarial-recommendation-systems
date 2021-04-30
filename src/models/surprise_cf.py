@@ -55,14 +55,14 @@ class Model():
         end = time.time()
         print('done in ', round(end-start), 'seconds')
 
-    def evaluate_cold_users_refined(self, refined_predictions):
-        print('NOT COLD USERS -- UN-REFINED USERS')
-        print('evaluating refined users', self.name, '... ', end='')
-        start = time.time()
-        self.cold_mae, self.cold_rmse = MAE_and_RMSE(self.full_prediction_matrix, self.ground_truth_cold, self.mask)
-        self.cold_MAPs, self.cold_MARs = getPandR(self.ks, self.full_prediction_matrix, self.ground_truth_cold, self.mask)
-        end = time.time()
-        print('done in ', round(end-start), 'seconds')
+    # def evaluate_cold_users_refined(self):
+    #     print('NOT COLD USERS -- UN-REFINED USERS')
+    #     print('evaluating refined users', self.name, '... ', end='')
+    #     start = time.time()
+    #     self.cold_mae, self.cold_rmse = MAE_and_RMSE(self.full_prediction_matrix, self.ground_truth_cold, self.mask)
+    #     self.cold_MAPs, self.cold_MARs = getPandR(self.ks, self.full_prediction_matrix, self.ground_truth_cold, self.mask)
+    #     end = time.time()
+    #     print('done in ', round(end-start), 'seconds')
 
     def get_diy_predictions(self, global_mean):
         self.full_prediction_matrix = np.dot(self.algo.pu, self.algo.qi.T)
@@ -81,15 +81,15 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
                    generated_items, .5)
         
         model.evaluate_all_users_refined()
-        model.evaluate_cold_users_refined()
-        model.evaluate_all_users()
+        # model.evaluate_cold_users_refined()
+        # model.evaluate_all_users()
 
-        mae, rmse = MAE_and_RMSE(model.full_prediction_matrix, model.ground_truth, model.mask)
-        maps, mars = getPandR(model.ks, model.full_prediction_matrix, model.ground_truth, model.mask)
-        print(mae, model.mae)
-        print(rmse, model.rmse)
-        print(maps, model.MAPs)
-        print(mars, model.MARs)
+        # mae, rmse = MAE_and_RMSE(model.full_prediction_matrix, model.ground_truth, model.mask)
+        # maps, mars = getPandR(model.ks, model.full_prediction_matrix, model.ground_truth, model.mask)
+        # print(mae, model.mae)
+        # print(rmse, model.rmse)
+        # print(maps, model.MAPs)
+        # print(mars, model.MARs)
     else: 
         model.evaluate_all_users()
         model.evaluate_cold_users()
@@ -111,10 +111,10 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
 
 if __name__ == "__main__":
 
-    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_more_sparse.npy',
+    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews_more_sparse.npy',
                         type=str, required=False,
                         help="Generated user data file path")
-    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_more_sparse.npy',
+    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_without_reviews_more_sparse.npy',
                         type=str, required=False,
                         help="Generated items data file path")
     parser.add_argument("--use_augmentation", default='no',
