@@ -13,6 +13,7 @@ def sort_csr(m):
 def getPandR(ks, predictions, ground_truth_coo, mask_coo):
     print(predictions.shape, mask_coo.toarray().shape)
     predictions = predictions * mask_coo.toarray()
+    print(predictions[:100][:100])
     predictions_csr = sparse.csr_matrix(predictions)
     predictions_coo = predictions_csr.tocoo()
     ground_truth_csr = ground_truth_coo.tocsr()

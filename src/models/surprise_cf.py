@@ -65,12 +65,19 @@ class Model():
 def run_model(model, trainset, testset, cold_testset, aug, generated_users, generated_items):
     model.train(trainset)
     model.predict(testset, cold_testset)
-    if model.name == 'SVD' and aug:
+    if model.name == 'SVD':
         full_prediction_matrix = np.dot(model.algo.pu, model.algo.qi.T)
-        refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users,
-                   generated_items, .5)
-        model.evaluate_all_users_refined(refined_predictions)
+        # refined_predictions = refine_ratings(trainset.ur, trainset.ir, full_prediction_matrix, generated_users,
+        #            generated_items, .5)
+        # model.evaluate_all_users_refined(refined_predictions)
         # model.evaluate_cold_users_refined(refined_predictions)
+        model.evaluate_all_users()
+        mae, rmse = MAE_and_RMSE(full_prediction_matrix, model.ground_truth, model.mask)
+        maps, mars = getPandR(model.ks, full_prediction_matrix, model.ground_truth, model.mask)
+        print(mae, model.mae)
+        print(rmse, model.rmse)
+        print(maps, model.MAPs)
+        print(mars, model.MARs)
     model.evaluate_all_users()
     model.evaluate_cold_users()
     return model
@@ -91,10 +98,10 @@ def run(masked_R_coo, unmasked_vals_coo, unmasked_cold_coo, mask_coo, mask_csr, 
 
 if __name__ == "__main__":
 
-    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_without_reviews_more_sparse.npy',
+    parser.add_argument("--augmented_users_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_user_neighbors_more_sparse.npy',
                         type=str, required=False,
                         help="Generated user data file path")
-    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_without_reviews_more_sparse.npy',
+    parser.add_argument("--augmented_items_file_path", default='/mnt/nfs/scratch1/neerajsharma/model_params/generated_1000_item_neighbors_more_sparse.npy',
                         type=str, required=False,
                         help="Generated items data file path")
     parser.add_argument("--use_augmentation", default='no',
