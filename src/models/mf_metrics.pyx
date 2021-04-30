@@ -38,14 +38,14 @@ def getPandR(ks, predictions, ground_truth_coo, mask_coo):
     return precisions, recalls
 
 def MAE_and_RMSE(predictions, ground_truth_coo, mask_coo):
-    predictions_coo = sparse.coo_matrix(predictions * mask_coo.toarray())
-    predictions_csr = predictions_coo.tocsr()
+    # predictions_coo = sparse.coo_matrix(predictions * mask_coo.toarray())
+    # predictions_csr = predictions_coo.tocsr()
     ground_truth_csr = ground_truth_coo.tocsr()
     mae, rmse = 0, 0
     total = mask_coo.nnz
     for i, j in zip(mask_coo.row, mask_coo.col):
-        mae += abs(predictions_csr[i,j] - ground_truth_csr[i,j])
-        rmse += (predictions_csr[i,j] - ground_truth_csr[i,j])**2
+        mae += abs(predictions[i,j] - ground_truth_csr[i,j])
+        rmse += (predictions[i,j] - ground_truth_csr[i,j])**2
     mae /= total
     rmse /= total
     return mae, np.sqrt(rmse)

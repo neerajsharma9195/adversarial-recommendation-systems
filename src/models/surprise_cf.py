@@ -2,7 +2,7 @@ import time
 import numpy as np
 from scipy import sparse
 import argparse
-
+import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser()
 from multiprocessing import Pool
 from surprise import accuracy, SVD, NormalPredictor, KNNBasic, BaselineOnly
@@ -65,8 +65,8 @@ class Model():
 
     def get_diy_predictions(self, global_mean):
         self.full_prediction_matrix = np.dot(self.algo.pu, self.algo.qi.T)
-        self.full_prediction_matrix += algo.bu.reshape(-1,1)
-        self.full_prediction_matrix += algo.bi
+        self.full_prediction_matrix += self.algo.bu.reshape(-1,1)
+        self.full_prediction_matrix += self.algo.bi
         self.full_prediction_matrix += global_mean
         
 
@@ -83,8 +83,8 @@ def run_model(model, trainset, testset, cold_testset, aug, generated_users, gene
         model.evaluate_all_users()
 
         model.get_diy_predictions(trainset.global_mean)
-        mae, rmse = MAE_and_RMSE(model.diy_predictions, model.ground_truth, model.mask)
-        maps, mars = getPandR(model.ks, model.diy_predictions, model.ground_truth, model.mask)
+        mae, rmse = MAE_and_RMSE(model.full_prediction_matrix, model.ground_truth, model.mask)
+        maps, mars = getPandR(model.ks, model.full_prediction_matrix, model.ground_truth, model.mask)
         print(mae, model.mae)
         print(rmse, model.rmse)
         print(maps, model.MAPs)
@@ -164,6 +164,7 @@ if __name__ == "__main__":
         unmasked_R_coo = sparse.hstack([unmasked_R_coo, generated_items_coo])
         mask_coo = sparse.hstack([mask_coo, false_coo])
         aug = True
+
     else:
         aug = False
         generated_users, generated_items = None, None
