@@ -143,3 +143,6 @@ src/models/*.c
 
 # VScode settings
 .vscode/
+
+# PyCharm settings
+.idea/
