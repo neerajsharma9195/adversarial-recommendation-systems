@@ -1,16 +1,16 @@
 # cython: language_level=3
 import os
 import time
+import math
 import progressbar
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy import sparse
+from scipy import sparse, stats
 from surprise import Dataset, accuracy, Reader, Trainset
 from collections import defaultdict
 from tabulate import tabulate
 from src.preprocessing.dataloader import UserDataset
-
 
 #################################################################
 #                           Evaluation                          #
@@ -72,6 +72,82 @@ def precision_recall_at_k(predictions, k=10, avg=True, threshold=3.5):
     else:
         return P, R
 
+def get_full_prediction_matrix(algo, trainset):
+    full_prediction_matrix = np.dot(algo.pu, algo.qi.T)
+    predictions = np.zeros_like(full_prediction_matrix)
+    num_users, num_items = full_prediction_matrix.shape
+    for u in range(num_users):
+        for i in range(num_items):
+            predictions[u,i] = full_prediction_matrix[u,i]+algo.bu[u]+algo.bi[i] + trainset.global_mean
+    return predictions
+
+def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matrix, neighbor_users,
+                   neighbor_items, alpha):
+    print('refining...', end='')
+    start = time.time()
+    num_users, num_items = predicted_augmented_rating_matrix.shape
+    og_num_users, og_num_items = neighbor_items[list(neighbor_items.keys())[0]].shape[1], neighbor_users[list(neighbor_users.keys())[0]].shape[1]
+    num_generated_users, num_generated_items = num_users - og_num_users, num_items - og_num_items
+    
+    for key, val in neighbor_users.items():  # key: index of user # val: list of neighbors
+        num_neighbors = val.shape[0]
+        real_ratings = users_dataset[key]
+        real_rating_vector = np.zeros(num_items)
+        for (k, v) in real_ratings:
+            real_rating_vector[k] = v
+
+        weights = np.zeros((num_neighbors, 1))
+        expanded_val = np.zeros((num_neighbors, num_items))
+        expanded_val[:, :og_num_items] = val
+        for i, neighbor in enumerate(expanded_val):
+            weights[i] = stats.pearsonr(real_rating_vector, neighbor)[0]
+
+        refine_rating_vector = alpha * predicted_augmented_rating_matrix[key] + \
+                                    (1 - alpha) * np.sum(weights * expanded_val, axis=0)
+
+        """
+        weights:                                 num_neighbors x 1
+        val:                                     num_neighbors x og_num_items -> num_neighbors x num_items
+        np.sum(weights * val, axis=0):           1 x og_num_items
+        predicted_augmented_rating_matrix[key]:  1 x num_items
+        """
+        
+        for i in range(len(refine_rating_vector)):
+            if refine_rating_vector[i] < 0:
+                refine_rating_vector[i] = 0.0
+            else:
+                refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+
+        predicted_augmented_rating_matrix[key] = refine_rating_vector
+
+    for key, val in neighbor_items.items():  # key: index of user # val: list of neighbors
+        num_neighbors = val.shape[0]
+        real_ratings = items_dataset[key]  
+        real_rating_vector = np.zeros(num_users)
+        for (k, v) in real_ratings:
+            real_rating_vector[k] = v
+
+        weights = np.zeros((num_neighbors, 1))
+        expanded_val = np.zeros((num_neighbors, num_users))
+        expanded_val[:, :og_num_users] = val
+
+        for i, neighbor in enumerate(expanded_val):  # calculating weights per neighbor
+            weights[i] = stats.pearsonr(real_rating_vector, neighbor)[0]
+
+        n, m = predicted_augmented_rating_matrix.shape
+        predicted_item_vector = predicted_augmented_rating_matrix[:,key].T
+
+        refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(weights * expanded_val, axis=0)
+        for i in range(len(refine_rating_vector)):
+            if refine_rating_vector[i] < 0:
+                refine_rating_vector[i] = 0.0
+            else:
+                refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+        for i in range(n):
+            predicted_augmented_rating_matrix[i][key] = refine_rating_vector[i]
+    end = time.time()
+    print(f'done in {round(end-start)} seconds')
+    return predicted_augmented_rating_matrix
 
 #################################################################
 #                   Printing and Plotting                       #
@@ -84,9 +160,9 @@ def show_and_save(models, aug):
     MAPs = [model.MAPs for model in models]
     MARs = [model.MARs for model in models]
 
-    cold_errors = [[model.cold_mae, model.cold_rmse] for model in models]
-    cold_MAPs = [model.cold_MAPs for model in models]
-    cold_MARs = [model.cold_MARs for model in models]
+    # cold_errors = [[model.cold_mae, model.cold_rmse] for model in models]
+    # cold_MAPs = [model.cold_MAPs for model in models]
+    # cold_MARs = [model.cold_MARs for model in models]
 
     os.makedirs('results', exist_ok=True)
     os.makedirs('results/cold_start', exist_ok=True)
@@ -98,11 +174,11 @@ def show_and_save(models, aug):
     tab_data = [[labels[i]] + errors[i] for i in range(len(labels))]
     print_table(tab_data, error_labels, aug)
 
-    plot_MAP(cold_MAPs, labels, ks, aug, cold_start=True)
-    plot_MAR(cold_MARs, labels, ks, aug, cold_start=True)
-    error_labels = ['cold_users'] + ['MAE', 'RMSE']
-    tab_data = [[labels[i]] + cold_errors[i] for i in range(len(labels))]
-    print_table(tab_data, error_labels, aug, cold_start=True)
+    # plot_MAP(cold_MAPs, labels, ks, aug, cold_start=True)
+    # plot_MAR(cold_MARs, labels, ks, aug, cold_start=True)
+    # error_labels = ['cold_users'] + ['MAE', 'RMSE']
+    # tab_data = [[labels[i]] + cold_errors[i] for i in range(len(labels))]
+    # print_table(tab_data, error_labels, aug, cold_start=True)
 
 def plot_MAP(MAPs, labels, ks, aug, cold_start=False):
     for i in range(len(MAPs)):
@@ -154,11 +230,9 @@ def print_table(tab_data, labels, aug, cold_start=False):
 def logical_xor(a, b):
     return (a>b)+(b>a)
 
-def only_cold_start(masked_R_coo, unmasked_vals_coo):
-    nnzs = masked_R_coo.getnnz(axis=1)
-    warm_users = nnzs > 2
-    print('num users total = ', len(nnzs))
-    print('num cold start users = ', len(nnzs) - len(np.where(warm_users)[0]))
+def only_cold_start(masked_R_coo, unmasked_vals_coo, warm_users):
+    print('num users total = ', masked_R_coo.shape[0])
+    print('num cold start users = ', masked_R_coo.shape[0] - len(np.where(warm_users)[0]))
     diagonal = sparse.eye(unmasked_vals_coo.shape[0]).tocsr()
     for i in warm_users:
         diagonal[i, i] = 0
@@ -200,10 +274,15 @@ def get_data_from_dataloader():
     )
     masked_R = training_dataset.get_interactions(style="numpy")
     unmasked_R = validation_dataset.get_interactions(style="numpy")
+    masked_R = masked_R.tocsr()
+    unmasked_R = unmasked_R.tocsr()
+    keep_item_idxs = masked_R.getnnz(0)>0
+    masked_R = masked_R[:,keep_item_idxs]
+    unmasked_R = unmasked_R[:,keep_item_idxs]
     end = time.time()
     print('downloaded in {} seconds'.format(round(end-start)))
 
-    return masked_R, unmasked_R
+    return masked_R.tocoo(), unmasked_R.tocoo(), keep_item_idxs
 
 def toy_example():
     masked_R = np.array([

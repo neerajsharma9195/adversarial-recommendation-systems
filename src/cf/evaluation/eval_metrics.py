@@ -27,6 +27,7 @@ from src.cf.utils.pandas_df_utils import (
     lru_cache_df,
 )
 
+from typing import Tuple
 
 def check_column_dtypes(func):
     """Checks columns of DataFrame inputs
@@ -641,6 +642,17 @@ def get_top_k_items(
     top_k_items["rank"] = top_k_items.groupby(col_user, sort=False).cumcount() + 1
     return top_k_items
 
+def get_top_k_items_np(interaction: np.ndarray, k=DEFAULT_K) -> Tuple[np.ndarray, np.ndarray]:
+    num_row, num_col = interaction.shape
+
+    if k is None:
+        row_idx = np.repeat(np.arange(num_row), num_col)
+        col_idx = np.tile(np.arange(num_col), num_row)
+    else:        
+        col_idx = np.argpartition(interaction, -k)[:, -k:].ravel()
+        row_idx = np.repeat(np.arange(num_row), k)
+    
+    return row_idx, col_idx
 
 """Function name and function mapper.
 Useful when we have to serialize evaluation metric names

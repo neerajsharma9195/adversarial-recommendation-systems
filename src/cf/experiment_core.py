@@ -68,9 +68,14 @@ def get_data_from_dataloader(data_name='food') -> (sparse.coo_matrix, sparse.coo
         )
         masked_R = training_dataset.get_interactions(style="numpy")
         unmasked_R = validation_dataset.get_interactions(style="numpy")
+        masked_R = masked_R.tocsr()
+        unmasked_R = unmasked_R.tocsr()
+        keep_item_idxs = masked_R.getnnz(0)>0
+        masked_R = masked_R[:,keep_item_idxs]
+        unmasked_R = unmasked_R[:,keep_item_idxs]
     print("took {} seconds for loading the dataset.".format(loading_time.interval))
 
-    return masked_R, unmasked_R
+    return masked_R.tocoo(), unmasked_R.tocoo(), keep_item_idxs
 
 def get_train_and_test_sets(masked_df: pd.DataFrame, unmasked_df: pd.DataFrame, unmasked_cold_df: pd.DataFrame) -> (Trainset, Testset, Testset):
     reader = surprise.Reader(rating_scale=(1, 5))
@@ -83,11 +88,9 @@ def get_train_and_test_sets(masked_df: pd.DataFrame, unmasked_df: pd.DataFrame, 
     cold_testset = train_data.construct_testset(cold_test_data.raw_ratings)
     return trainset, testset, cold_testset
 
-def only_cold_start(masked_R_coo: sparse.coo_matrix, unmasked_vals_coo: sparse.coo_matrix) -> sparse.coo_matrix:
-    nnzs = masked_R_coo.getnnz(axis=1)
-    warm_users = nnzs > 2
-    print('num users total = ', len(nnzs))
-    print('num cold start users = ', len(nnzs) - len(np.where(warm_users)[0]))
+def only_cold_start(masked_R_coo: sparse.coo_matrix, unmasked_vals_coo: sparse.coo_matrix, warm_users: np.ndarray) -> sparse.coo_matrix:
+    print('num users total = ', masked_R_coo.shape[0])
+    print('num cold start users = ', masked_R_coo.shape[0] - len(np.where(warm_users)[0]))
     diagonal = sparse.eye(unmasked_vals_coo.shape[0]).tocsr()
     for i in warm_users:
         diagonal[i, i] = 0
