@@ -6,6 +6,7 @@ __pycache__/
 # jupyter notebooks
 *.ipynb
 !src/cf/experiment.ipynb
+!src/cf/metrics.ipynb
 
 # C extensions
 *.so
