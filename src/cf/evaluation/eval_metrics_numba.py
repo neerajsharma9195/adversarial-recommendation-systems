@@ -3,11 +3,14 @@ from scipy import sparse
 from numba import njit, prange
 from src.cf.utils.numba_utils import getitem_by_row_col
 
-from sklearn.metrics import (
+from src.cf.evaluation.math_numba import (
     mean_squared_error,
     mean_absolute_error,
+    explained_variance_score
+)
+
+from sklearn.metrics import (
     r2_score,
-    explained_variance_score,
     roc_auc_score,
     log_loss,
 )
@@ -23,11 +26,11 @@ from typing import Tuple
 def merge_rating_true_pred(
     rating_true: np.ndarray,
     rating_pred: np.ndarray,
-    pred_uid: np.ndarray,
-    pred_iid: np.ndarray) -> Tuple[np.ndarray]:
+    true_uid: np.ndarray,
+    true_iid: np.ndarray) -> Tuple[np.ndarray]:
 
-    pred = getitem_by_row_col(rating_pred, *np.nonzero(rating_pred))
-    actual = getitem_by_row_col(rating_true, pred_uid, pred_iid)
+    pred = getitem_by_row_col(rating_pred, true_uid, true_iid)
+    actual = getitem_by_row_col(rating_true, true_uid, true_iid)
 
     return actual, pred
 
@@ -43,13 +46,13 @@ def rmse(
     Returns:
         float: Root mean squared error
     """
-    rating_pred_coo = sparse.coo_matrix(rating_pred)
-    pred_uid, pred_iid = rating_pred_coo.row, rating_pred_coo.col
+    rating_true_coo = sparse.coo_matrix(rating_true)
+    true_uid, true_iid = rating_true_coo.row, rating_true_coo.col
     y_true, y_pred = merge_rating_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
-        pred_uid=pred_uid,
-        pred_iid=pred_iid
+        true_uid=true_uid,
+        true_iid=true_iid
     )
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
@@ -66,13 +69,13 @@ def mae(
         float: Mean Absolute Error.
     """
 
-    rating_pred_coo = sparse.coo_matrix(rating_pred)
-    pred_uid, pred_iid = rating_pred_coo.row, rating_pred_coo.col
+    rating_true_coo = sparse.coo_matrix(rating_true)
+    true_uid, true_iid = rating_true_coo.row, rating_true_coo.col
     y_true, y_pred = merge_rating_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
-        pred_uid=pred_uid,
-        pred_iid=pred_iid
+        true_uid=true_uid,
+        true_iid=true_iid
     )
     return mean_absolute_error(y_true, y_pred)
 
@@ -90,13 +93,13 @@ def rsquared(
         float: R squared (min=0, max=1).
     """
 
-    rating_pred_coo = sparse.coo_matrix(rating_pred)
-    pred_uid, pred_iid = rating_pred_coo.row, rating_pred_coo.col
+    rating_true_coo = sparse.coo_matrix(rating_true)
+    true_uid, true_iid = rating_true_coo.row, rating_true_coo.col
     y_true, y_pred = merge_rating_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
-        pred_uid=pred_uid,
-        pred_iid=pred_iid
+        true_uid=true_uid,
+        true_iid=true_iid
     )
     return r2_score(y_true, y_pred)
 
@@ -114,13 +117,13 @@ def exp_var(
         float: Explained variance (min=0, max=1).
     """
 
-    rating_pred_coo = sparse.coo_matrix(rating_pred)
-    pred_uid, pred_iid = rating_pred_coo.row, rating_pred_coo.col
+    rating_true_coo = sparse.coo_matrix(rating_true)
+    true_uid, true_iid = rating_true_coo.row, rating_true_coo.col
     y_true, y_pred = merge_rating_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
-        pred_uid=pred_uid,
-        pred_iid=pred_iid
+        true_uid=true_uid,
+        true_iid=true_iid
     )
     return explained_variance_score(y_true, y_pred)
 
@@ -145,13 +148,13 @@ def auc(
         float: auc_score (min=0, max=1)
     """
 
-    rating_pred_coo = sparse.coo_matrix(rating_pred)
-    pred_uid, pred_iid = rating_pred_coo.row, rating_pred_coo.col
+    rating_true_coo = sparse.coo_matrix(rating_true)
+    true_uid, true_iid = rating_true_coo.row, rating_true_coo.col
     y_true, y_pred = merge_rating_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
-        pred_uid=pred_uid,
-        pred_iid=pred_iid
+        true_uid=true_uid,
+        true_iid=true_iid
     )
     return roc_auc_score(y_true, y_pred)
 
@@ -171,13 +174,13 @@ def logloss(
         float: log_loss_score (min=-inf, max=inf)
     """
 
-    rating_pred_coo = sparse.coo_matrix(rating_pred)
-    pred_uid, pred_iid = rating_pred_coo.row, rating_pred_coo.col
+    rating_true_coo = sparse.coo_matrix(rating_true)
+    true_uid, true_iid = rating_true_coo.row, rating_true_coo.col
     y_true, y_pred = merge_rating_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
-        pred_uid=pred_uid,
-        pred_iid=pred_iid
+        true_uid=true_uid,
+        true_iid=true_iid
     )
     return log_loss(y_true, y_pred)
 
