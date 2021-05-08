@@ -215,7 +215,7 @@ def plot_MAR(MARs, labels, ks, aug, cold_start=False):
     plt.close()
 
 def print_table(tab_data, labels, aug, cold_start=False):
-    table = tabulate(tab_data, headers=labels, tablefmt="fancy_grid")
+    table = tabulate(tab_data, headers=labels, tablefmt="github")
     print(table)
     user_type = 'cold_start' if cold_start is True else 'all_users'
     aug_type = 'aug_' if aug is True else 'base_'
@@ -226,6 +226,37 @@ def print_table(tab_data, labels, aug, cold_start=False):
 #################################################################
 #                        Data Wrangling                         #
 #################################################################
+
+def make_aug_data(masked_R_coo, unmasked_R_coo, keep_item_idxs, mask_coo, warm_users, generated_users_file, generated_items_file):
+    generated_users = np.load(generated_users_file, allow_pickle=True).item()
+    generated_items = np.load(generated_items_file, allow_pickle=True).item()
+    for key, value in generated_users.items():
+        generated_users[key] = value[:,keep_item_idxs]
+    num_user_ids = len(generated_users.keys())
+    num_item_ids = len(generated_items.keys())
+    user_neighbor_per_id, user_neighbor_dim = generated_users[list(generated_users.keys())[0]].shape
+    item_neighbor_per_id, item_neighbor_dim = generated_items[list(generated_items.keys())[0]].shape
+    num_generated_users = num_user_ids * user_neighbor_per_id
+    num_generated_items = num_item_ids * item_neighbor_per_id
+
+    generated_users_vectors = np.array([v for v in generated_users.values()]).reshape(num_generated_users, user_neighbor_dim)
+    generated_users_coo = sparse.coo_matrix(generated_users_vectors)
+    false_coo = sparse.coo_matrix(np.zeros_like(generated_users_vectors, dtype=bool))
+    aug_masked_R_coo = sparse.vstack([masked_R_coo, generated_users_coo])
+    aug_unmasked_R_coo = sparse.vstack([unmasked_R_coo, generated_users_coo])
+    aug_mask_coo = sparse.vstack([mask_coo, false_coo])
+
+    generated_items_vectors = np.array([v for v in generated_items.values()]).reshape(num_generated_items, item_neighbor_dim)
+    filler = np.zeros((num_generated_items, num_generated_users))
+    generated_items_vectors = np.concatenate((generated_items_vectors, filler), axis=1)
+    false_coo = sparse.coo_matrix(np.zeros_like(generated_items_vectors.T, dtype=bool))
+    generated_items_coo = sparse.coo_matrix(generated_items_vectors.T)
+
+    aug_masked_R_coo = sparse.hstack([aug_masked_R_coo, generated_items_coo])
+    aug_unmasked_R_coo = sparse.hstack([aug_unmasked_R_coo, generated_items_coo])
+    aug_mask_coo = sparse.hstack([aug_mask_coo, false_coo])
+
+    return aug_masked_R_coo, aug_unmasked_R_coo, aug_mask_coo, generated_users, generated_items
 
 def logical_xor(a, b):
     return (a>b)+(b>a)

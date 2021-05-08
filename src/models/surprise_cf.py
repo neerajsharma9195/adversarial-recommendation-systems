@@ -10,12 +10,14 @@ from src.models.cf_utils import *
 from src.models.mf_metrics import *
 
 class Model():
-    def __init__(self, name, algo, ks, ground_truth=None, mask=None, ground_truth_cold=None):
+    def __init__(self, name, algo, ks, trainset, testset, ground_truth=None, mask=None, ground_truth_cold=None):
         self.name = name
         self.algo = algo
         self.ks = ks
         self.mask = mask
         self.ground_truth = ground_truth
+        self.trainset = trainset
+        self.testset = testset
 
     def train(self, trainset):
         print('training ', self.name, '... ', end='')
@@ -69,6 +71,7 @@ class Model():
         self.full_prediction_matrix += self.algo.bu.reshape(-1,1)
         self.full_prediction_matrix += self.algo.bi
         self.full_prediction_matrix += global_mean
+
         
 
 def run_model(model, trainset, testset, cold_testset, aug, generated_users, generated_items):
