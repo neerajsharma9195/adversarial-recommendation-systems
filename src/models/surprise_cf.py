@@ -16,6 +16,7 @@ class Model():
         self.ks = ks
         self.mask = mask
         self.ground_truth = ground_truth
+        self.ground_truth_cold = ground_truth_cold
         self.trainset = trainset
         self.testset = testset
         self.cold_testset = cold_testset
