@@ -111,13 +111,15 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
         np.sum(weights * val, axis=0):           1 x og_num_items
         predicted_augmented_rating_matrix[key]:  1 x num_items
         """
-        
-        for i in range(len(refine_rating_vector)):
-            if refine_rating_vector[i] < 0:
-                refine_rating_vector[i] = 0.0
-            else:
-                refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
 
+        refine_rating_vector = np.maximum(np.zeros_like(predicted_augmented_rating_matrix[key]), predicted_augmented_rating_matrix[key])
+        # for i in range(len(refine_rating_vector)):
+        #     if refine_rating_vector[i] < 0:
+        #         refine_rating_vector[i] = 0.0
+            # else:
+                # refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+        if predicted_augmented_rating_matrix[key] != refine_rating_vector:
+            print('refining changed output by at least', np.max(np.abs(predicted_augmented_rating_matrix[key] - refine_rating_vector)))
         predicted_augmented_rating_matrix[key] = refine_rating_vector
 
     for key, val in neighbor_items.items():  # key: index of user # val: list of neighbors
@@ -138,11 +140,12 @@ def refine_ratings(users_dataset, items_dataset, predicted_augmented_rating_matr
         predicted_item_vector = predicted_augmented_rating_matrix[:,key].T
 
         refine_rating_vector = alpha * predicted_item_vector + (1 - alpha) * np.sum(weights * expanded_val, axis=0)
-        for i in range(len(refine_rating_vector)):
-            if refine_rating_vector[i] < 0:
-                refine_rating_vector[i] = 0.0
-            else:
-                refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
+        refine_rating_vector = np.maximum(np.zeros_like(predicted_augmented_rating_matrix[key]), predicted_augmented_rating_matrix[key])
+        # for i in range(len(refine_rating_vector)):
+        #     if refine_rating_vector[i] < 0:
+        #         refine_rating_vector[i] = 0.0
+            # else:
+                # refine_rating_vector[i] = math.ceil(refine_rating_vector[i])
         for i in range(n):
             predicted_augmented_rating_matrix[i][key] = refine_rating_vector[i]
     end = time.time()

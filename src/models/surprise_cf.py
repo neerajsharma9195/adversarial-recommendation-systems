@@ -10,7 +10,7 @@ from src.models.cf_utils import *
 from src.models.mf_metrics import *
 
 class Model():
-    def __init__(self, name, algo, ks, trainset, testset, ground_truth=None, mask=None, ground_truth_cold=None):
+    def __init__(self, name, algo, ks, trainset, testset, cold_testset, ground_truth=None, mask=None, ground_truth_cold=None):
         self.name = name
         self.algo = algo
         self.ks = ks
@@ -18,17 +18,18 @@ class Model():
         self.ground_truth = ground_truth
         self.trainset = trainset
         self.testset = testset
+        self.cold_testset = cold_testset
 
-    def train(self, trainset):
+    def train(self):
         print('training ', self.name, '... ', end='')
         start = time.time()
-        self.algo.fit(trainset)
+        self.algo.fit(self.trainset)
         end = time.time()
         print('done in ', round(end-start), 'seconds')
     
-    def predict(self, testset, cold_testset):
-        self.predictions = self.algo.test(testset)
-        self.cold_predictions = self.algo.test(cold_testset)
+    def predict(self):
+        self.predictions = self.algo.test(self.testset)
+        self.cold_predictions = self.algo.test(self.cold_testset)
 
     def evaluate_all_users(self):
         print('evaluating all users', self.name, '... ', end='')
@@ -66,11 +67,11 @@ class Model():
     #     end = time.time()
     #     print('done in ', round(end-start), 'seconds')
 
-    def get_diy_predictions(self, global_mean):
+    def get_diy_predictions(self):
         self.full_prediction_matrix = np.dot(self.algo.pu, self.algo.qi.T)
         self.full_prediction_matrix += self.algo.bu.reshape(-1,1)
         self.full_prediction_matrix += self.algo.bi
-        self.full_prediction_matrix += global_mean
+        self.full_prediction_matrix += self.trainset.global_mean
 
         
 
