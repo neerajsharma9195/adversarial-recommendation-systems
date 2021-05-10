@@ -247,8 +247,8 @@ def precision_at_k(
     rating_pred: np.ndarray,
     train_row: np.ndarray,
     train_col: np.ndarray,
-    real_row: np.ndarray,
-    real_col: np.ndarray,
+    real_rows: np.ndarray,
+    real_cols: np.ndarray,
     relevancy_method,
     k=DEFAULT_K,
     threshold=0) -> float:
@@ -331,8 +331,8 @@ def recall_at_k(
     rating_pred,
     train_row,
     train_col,
-    real_row: np.ndarray,
-    real_col: np.ndarray,
+    real_rows: np.ndarray,
+    real_cols: np.ndarray,
     relevancy_method,
     k=DEFAULT_K,
     threshold=0
