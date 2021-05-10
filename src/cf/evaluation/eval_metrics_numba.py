@@ -247,6 +247,8 @@ def precision_at_k(
     rating_pred: np.ndarray,
     train_row: np.ndarray,
     train_col: np.ndarray,
+    real_row: np.ndarray,
+    real_col: np.ndarray,
     relevancy_method,
     k=DEFAULT_K,
     threshold=0) -> float:
@@ -289,6 +291,12 @@ def precision_at_k(
     rating_true[train_row, train_col] = 0
     rating_pred[train_row, train_col] = 0
 
+    rating_true = rating_true[real_rows, :]
+    rating_true = rating_true[:, real_cols]
+    
+    rating_pred = rating_pred[real_rows, :]
+    rating_pred = rating_pred[:, real_cols]
+
     (top_k_pred, top_k_pred_true, _, _, _) = merge_ranking_true_pred(
         rating_true=rating_true,
         rating_pred=rating_pred,
@@ -323,6 +331,8 @@ def recall_at_k(
     rating_pred,
     train_row,
     train_col,
+    real_row: np.ndarray,
+    real_col: np.ndarray,
     relevancy_method,
     k=DEFAULT_K,
     threshold=0
@@ -359,6 +369,12 @@ def recall_at_k(
     # Remove ratings that are seen in the training set
     rating_true[train_row, train_col] = 0
     rating_pred[train_row, train_col] = 0
+
+    rating_true = rating_true[real_rows, :]
+    rating_true = rating_true[:, real_cols]
+    
+    rating_pred = rating_pred[real_rows, :]
+    rating_pred = rating_pred[:, real_cols]
 
     (top_k_pred, top_k_pred_true, _, _, _) = merge_ranking_true_pred(
         rating_true=rating_true,
